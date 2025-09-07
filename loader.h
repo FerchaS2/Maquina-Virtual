@@ -4,9 +4,10 @@
 #include "mv.h"
 #include <stdio.h>
 #include <string.h>
-#define IDX_CS 26
-#define IDX_DS 27
-#define IDX_IP 3
+#define ERR_IO 1
+#define ERR_ID 2
+#define ERR_VER 3
+#define ERR_COD 4
 
 void carga_prog(MV * mv, const char * filename, int *err);
 

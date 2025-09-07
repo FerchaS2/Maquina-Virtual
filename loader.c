@@ -1,10 +1,5 @@
 #include "loader.h"
 
-#define ERR_IO 1
-#define ERR_ID 2
-#define ERR_VER 3
-#define ERR_COD 4
-
 void carga_prog(MV * mv, const char * filename, int *err) {
     FILE * arch = fopen(filename,"rb");
     char id[6];
@@ -37,7 +32,7 @@ void carga_prog(MV * mv, const char * filename, int *err) {
                     fread(mv->memoria, 1, tam_cod, arch);
                     mv->registros[IDX_CS] = 0; //CS = 26 y DS = 27
                     mv->registros[IDX_DS] = (1 << 16) | 0; // DS = 00 01 00 00
-                    mv->registros[IDX_IP] = mv->registros[26];
+                    mv->registros[IDX_IP] = mv->registros[IDX_CS];
                     *err = 0;
                 }
             }
