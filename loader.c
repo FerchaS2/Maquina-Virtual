@@ -1,4 +1,6 @@
 #include "loader.h"
+#include <string.h>
+#include <stdio.h>
 
 void carga_prog(MV * mv, const char * filename, int *err) {
     FILE * arch = fopen(filename,"rb");

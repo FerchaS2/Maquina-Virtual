@@ -67,11 +67,12 @@ void decodificador(MV *mv, InstrDecod *instr, int *err) {
                 cargaOp(mv, t1, &(instr->op1), err);
             } else
                 *err = ERR_OP1INM;
-        } else if (t2) //un operando
+        } else if (t2) { //un operando
             if (t2 != 0x02) //el op1 no puede ser un inmediato
                 cargaOp(mv, t2, &(instr->op1), err);
             else
                 *err = ERR_OP1INM;
+        }
         //Sin operandos -> No hace nada, quedan con 0 ambos.
     }
 }

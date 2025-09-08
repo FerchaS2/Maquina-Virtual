@@ -7,6 +7,7 @@ typedef struct {
     uint32_t opc, op1, op2;
 } InstrDecod;
 
+
 void decodificador(MV *mv, InstrDecod *instr, int *err);
 
 #endif

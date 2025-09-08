@@ -2,8 +2,7 @@
 #define MEMORY_H
 
 #include "mv.h"
-#include <stdio.h>
-#include <string.h>
+
 #define ERR_SEG 1
 #define ERR_FDSEG 2
 

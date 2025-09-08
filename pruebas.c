@@ -1,9 +1,8 @@
 #include "mv.h"
+#include "decoder.h"
 #include "loader.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
+#include "instrucciones.h"
+#include "memory.h"
 
 int main()
 {
@@ -11,10 +10,15 @@ int main()
     int err;
     char prueba[25];
     ini_mv(&mv);
-    const char * filename = "sample.vmx";
+    const char * filename = "pruebas.vmx";
     carga_prog(&mv, filename, &err);
-    printf("%x", mv.memoria[1]);
+    //printf("%x", mv.memoria[0]);
+
+    ejecutar(&mv);
+    printf("EAX = %x = %d\nEBX = %x = %d\n", mv.registros[10], mv.registros[10], mv.registros[11], mv.registros[11]);
+
     scanf("%s", prueba);
+
 
     return 0;
 }

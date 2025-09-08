@@ -2,8 +2,7 @@
 #define LOADER_H
 
 #include "mv.h"
-#include <stdio.h>
-#include <string.h>
+
 #define ERR_IO 1
 #define ERR_ID 2
 #define ERR_VER 3

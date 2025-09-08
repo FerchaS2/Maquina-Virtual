@@ -2,19 +2,16 @@
 #define MV_H
 
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include "opcodes.h"
-#include "instrucciones.h"
-#include "memory.h"
+#include <stdio.h>
 
 #define SEGM_CS 0x0000
-#define SEGM_CS 0x0100
+#define SEGM_DS 0x0100
 
 #define IDX_CS 26
 #define IDX_DS 27
 #define IDX_IP 3
+#define IDX_CC 17
 #define IDX_LAR 0
 #define IDX_MAR 1
 #define IDX_MBR 2
@@ -33,9 +30,10 @@ typedef struct {
     uint8_t memoria[MEM];
     SegDesc segmentos[CANT_SEGM];
     uint32_t registros[CANT_REG];
-}   MV;
+} MV;
 
 void ini_mv(MV * mv);
 void ejecutar(MV *mv);
+void incIP(MV *mv, uint16_t inc);
 
 #endif

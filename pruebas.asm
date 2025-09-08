@@ -1,0 +1,3 @@
+MOV EAX, 5
+ADD EBX, EAX
+STOP

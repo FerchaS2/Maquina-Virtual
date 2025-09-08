@@ -3,7 +3,6 @@
 
 #include "mv.h"
 #include "decoder.h"
-#define CANT_REG
 
 typedef void (*Fn_Instr)(MV *mv, InstrDecod *instr);
 

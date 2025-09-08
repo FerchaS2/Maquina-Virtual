@@ -1,4 +1,6 @@
 #include "mv.h"
+#include "decoder.h"
+#include "instrucciones.h"
 
 void ini_mv(MV * mv) {
     memset(mv->memoria, 0, MEM);
