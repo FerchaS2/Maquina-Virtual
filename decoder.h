@@ -9,5 +9,6 @@ typedef struct {
 
 
 void decodificador(MV *mv, InstrDecod *instr, int *err);
+void cargaOp(MV *mv, uint8_t tipo, uint32_t *dest, int *err);
 
 #endif

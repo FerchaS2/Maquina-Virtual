@@ -30,7 +30,7 @@
 #define OPC_XOR  0x1B
 #define OPC_SWAP 0x1C
 #define OPC_LDL  0x1D
-#define OPC_LHD  0x1E
+#define OPC_LDH  0x1E
 #define OPC_RND  0x1F
 
 #endif

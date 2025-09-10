@@ -15,7 +15,8 @@ int main()
     //printf("%x", mv.memoria[0]);
 
     ejecutar(&mv);
-    printf("EAX = %x = %d\nEBX = %x = %d\n", mv.registros[10], mv.registros[10], mv.registros[11], mv.registros[11]);
+    int32_t r1 = (int32_t) mv.registros[10], r2 = (int32_t) mv.registros[11];
+    printf("EAX = %x = %d\nEBX = %x = %d\n", mv.registros[10], r1, mv.registros[11], r2);
 
     scanf("%s", prueba);
 

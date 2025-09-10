@@ -37,15 +37,16 @@ void ejecutar(MV *mv) {
         if (segact != SEGM_CS) {
             fin = 1;
             //fuera de segmento de código
+            //HACER DESPUÉS UN SWITCH(ERR) PARA CUANDO FINALICE SABER EL TIPO DE ERROR
+            //Luego de hacerlo simplificar el código de debajo
         } else {
             decodificador(mv, &instr, &err);
-            if (err) {
-                printf("Error de decodificación\n");
+            if (err)
                 fin = 1;
-            } else {
+            else {
                 FnAct = vecFn[instr.opc];
                 if (FnAct) 
-                    FnAct(mv, &instr);
+                    FnAct(mv, &instr, &err);
                 else {
                     printf("No existe el opcode\n");
                     fin = 1;

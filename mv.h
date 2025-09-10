@@ -12,11 +12,21 @@
 #define IDX_DS 27
 #define IDX_IP 3
 #define IDX_CC 17
+#define IDX_AC 16
 #define IDX_LAR 0
 #define IDX_MAR 1
 #define IDX_MBR 2
+#define IDX_EAX 10
+#define IDX_EBX 11
+#define IDX_ECX 12
+#define IDX_EDX 13
+#define IDX_EEX 14
+#define IDX_EFX 15
 
 #define MAX_FN 32
+
+#define FLAG_N (1u << 31)
+#define FLAG_Z (1u << 30)
 
 #define MEM 16384
 #define CANT_SEGM 8
