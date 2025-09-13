@@ -5,6 +5,15 @@
 #include "memory.h"
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
+
+#define MODE_DEC  0x01
+#define MODE_CHAR  0x02
+#define MODE_OCT   0x04
+#define MODE_HEX   0x08
+#define MODE_BIN   0x10
+
+#define ERR_NOTINM 10
 
 void ini_VecFn(Fn_Instr *vec) {
     for (int i = 0; i < 32; i++)
@@ -226,6 +235,7 @@ void Fn_DIV(MV *mv, InstrDecod *instr, int *err) {
 void Fn_MUL(MV *mv, InstrDecod *instr, int *err) {
     uint32_t val1, val2, res;
     int32_t signedRes;
+    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val1 = getValorPorInstr(mv, instr->op1);
@@ -489,25 +499,49 @@ void Fn_JMP(MV *mv, InstrDecod *instr, int *err) {
 void Fn_NOT(MV *mv, InstrDecod *instr, int *err) {
     uint32_t val, res;
     int32_t signedRes;
-    (void)err;
 
-    mv->registros[IDX_CC] = 0;
-    val = getValorPorInstr(mv, instr->op1);
-    res = ~val;
-    setValorPorInstr(mv, instr->op1, res);
+    if (((instr->op1 >> 24) & 0xFF) == 0x02) { //es inmediato
+        *err = ERR_NOTINM;
+    } else {
+        mv->registros[IDX_CC] = 0;
+        val = getValorPorInstr(mv, instr->op1);
+        res = ~val;
+        setValorPorInstr(mv, instr->op1, res);
 
-    signedRes = (int32_t)res;
+        signedRes = (int32_t)res;
 
-    if (signedRes < 0)
-        mv->registros[IDX_CC] |= FLAG_N; // set bit N
-    else if (signedRes == 0)
-        mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
+        if (signedRes < 0)
+            mv->registros[IDX_CC] |= FLAG_N; // set bit N
+        else if (signedRes == 0)
+            mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
+    }
+}
+
+uint32_t leer_valor(uint32_t modo) {
+    int val = 0;
+    char charaux[128];
+
+    if (modo & MODE_DEC) {     // decimal
+        scanf("%d", &val);
+    } else if (modo & MODE_CHAR) {   // caracteres
+        scanf("%s", charaux);
+        val = (uint8_t)charaux[0];   // guardo el ASCII
+    } else if (modo & MODE_OCT) {   // octal
+        scanf("%o", &val);
+    } else if (modo & MODE_HEX) {   // hexadecimal
+        scanf("%x", &val);
+    } else if (modo & MODE_BIN) {   // binario
+        scanf("%s", charaux);
+        val = (int) strtol(charaux, NULL, 2); // base 2, uso strtol pq no existe %b o algo parecido en C
+    }
+
+    return (uint32_t) val;
 }
 
 void SYS_READ(MV *mv) {
-    uint32_t edx, ecx, eax, dir_fisica;
+    uint32_t edx, ecx, eax, dir_fisica, valor;
     uint16_t segm, off;
-    int nbytes, cant;
+    int nbytes, cant, err;
 
     edx = mv->registros[IDX_EDX];
     ecx = mv->registros[IDX_ECX];
@@ -515,15 +549,94 @@ void SYS_READ(MV *mv) {
 
     segm = (edx >> 16) & 0xFFFF;
     off = edx & 0xFFFF;
-    nbytes = 
+    nbytes = (ecx >> 16) & 0xFFFF;  // tamaño de cada celda
+    cant   = ecx & 0xFFFF;          // cantidad de celdas
 
-    traductor(mv, segm, off, )
+    for (int i = 0; i < cant; i++) {
+        traductor(mv, segm, off + i * nbytes, nbytes, &err, &dir_fisica);
+        valor = leer_valor(eax);
+
+        for (int j = 0; j < nbytes; j++)
+            mv->memoria[dir_fisica + j] = (valor >> (8*(nbytes-1-j))) & 0xFF;
+        // guardo por cada celda de 2 bytes de la memoria
+    }
+}
+
+void bin_a_str(uint32_t valor, char *charaux, int nbits) {
+    for (int i = nbits - 1; i >= 0; i--) {
+        charaux[nbits - 1 - i] = (valor & (1u << i)) ? '1' : '0';
+    }
+    charaux[nbits] = '\0'; // terminador de string
+}
+
+void mostrar_valor(uint32_t modo, uint32_t valor, uint32_t dir) {
+    char charaux[128];
+    printf("[%04x] ", dir);
+
+    if (modo & MODE_DEC)   // decimal
+        printf("%d ", valor);
+    
+    if (modo & MODE_CHAR) {
+        char c = (char)(valor & 0xFF);
+        if (isprint(c))
+            printf("%c ", c);
+        else
+            printf(". ");
+    }
+    
+    if (modo & MODE_OCT)    // octal
+        printf("0o%03o ", valor);
+    
+    if (modo & MODE_HEX)    // hexadecimal
+        printf("0x%04x ", valor);
+    
+    if (modo & MODE_BIN) {   // binario
+        bin_a_str(valor, charaux, 32);
+        printf("0b%s ", charaux);
+    }
+
+    printf("\n");
 }
 
 void SYS_WRITE(MV *mv) {
-    
+    uint32_t edx, ecx, eax, dir_fisica, valor;
+    uint16_t segm, off;
+    int nbytes, cant, err;
+
+    edx = mv->registros[IDX_EDX];
+    ecx = mv->registros[IDX_ECX];
+    eax = mv->registros[IDX_EAX];
+
+    segm = (edx >> 16) & 0xFFFF;
+    off = edx & 0xFFFF;
+    nbytes = (ecx >> 16) & 0xFFFF;  // tamaño de cada celda
+    cant   = ecx & 0xFFFF;          // cantidad de celdas
+
+    for (int i = 0; i < cant; i++) {
+        traductor(mv, segm, off + i * nbytes, nbytes, &err, &dir_fisica);
+        valor = 0;
+
+        for (int j = 0; j < nbytes; j++) {
+            valor <<= 8;
+            valor |= mv->memoria[dir_fisica + j];
+        }
+        
+        mostrar_valor(eax, valor, off);
+    }
 }
 
 void Fn_SYS(MV *mv, InstrDecod *instr, int *err) {
-    void(err);
+    (void)err;
+    int llamada = getValorPorInstr(mv, instr->op1);
+    
+    switch (llamada) //Hago case por si a futuro hay más llamadas
+    {
+    case 2:
+        SYS_WRITE(mv);
+        break;
+
+    case 1:
+        SYS_READ(mv);
+        break;
+    }
 }

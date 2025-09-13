@@ -2,6 +2,8 @@
 #include "decoder.h"
 #include "instrucciones.h"
 
+#define ERR_OPINV 11
+
 void ini_mv(MV * mv) {
     memset(mv->memoria, 0, MEM);
     memset(mv->registros, 0, sizeof(mv->registros));
@@ -34,12 +36,9 @@ void ejecutar(MV *mv) {
     while (!fin) {
         ip = mv->registros[IDX_IP];
         segact = (ip >> 16) & 0xFFFF;
-        if (segact != SEGM_CS) {
+        if (segact != SEGM_CS) 
             fin = 1;
-            //fuera de segmento de código
-            //HACER DESPUÉS UN SWITCH(ERR) PARA CUANDO FINALICE SABER EL TIPO DE ERROR
-            //Luego de hacerlo simplificar el código de debajo
-        } else {
+        else {
             decodificador(mv, &instr, &err);
             if (err)
                 fin = 1;
@@ -48,10 +47,36 @@ void ejecutar(MV *mv) {
                 if (FnAct) 
                     FnAct(mv, &instr, &err);
                 else {
-                    printf("No existe el opcode\n");
+                    err = ERR_OPINV;
                     fin = 1;
                 }
             }
+        }
+    }
+
+    if(err) {
+        printf("El programa finalizo por un error:\n");
+        switch (err)
+        {
+        case ERR_DIV:
+            printf("División por cero");
+            break;
+        
+        case ERR_SWAP:
+            printf("SWAP");
+            break;
+
+        case ERR_OPINV:
+            printf("Operación inválida");
+            break;
+
+        case 6:
+            printf("Fuera de segmento");
+            break;
+
+        default:
+            printf("Error no implementado");
+            break;
         }
     }
 }
