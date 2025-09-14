@@ -3,6 +3,7 @@
 #include "loader.h"
 #include "instrucciones.h"
 #include "memory.h"
+#include "desensamblador.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,6 +85,7 @@ int main() {
     if(!err) {
         mostrar_estado(&mv, "Estado inicial");
         ejecutar_debug(&mv);
+        desensamblar(&mv);
         scanf("%s", pruebas);
         mostrar_estado(&mv, "Estado final");
     }

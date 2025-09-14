@@ -3,6 +3,7 @@
 #include "loader.h"
 #include "instrucciones.h"
 #include "memory.h"
+#include "desensamblador.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,11 +19,7 @@ int main(int argc, char const *argv[]) {
 
     MV mv;
     const char *filename = argv[1];
-    int diss = 0, err;
-
-    if (argc > 2 && strcmp(argv[2], "-d") == 0) {
-        diss = 1;
-    }
+    int err;
 
     
     ini_mv(&mv);
@@ -30,7 +27,11 @@ int main(int argc, char const *argv[]) {
     carga_prog(&mv, filename, &err);
 
     if (!err) {
-        ejecutar(&mv);
+        ejecutar(&mv, &err);
+        if (argc > 2 && (strcmp(argv[2], "-d") == 0) && !err) {
+            printf("\n================ DESENSAMBLADO ================\n");
+            desensamblar(&mv);
+        }
     } else
         printf("Error al cargar el programa\n");
 

@@ -22,12 +22,11 @@ void incIP(MV *mv, uint16_t inc) {
 }
 
 
-void ejecutar(MV *mv) {
+void ejecutar(MV *mv, int *err) {
     int fin = 0;
     InstrDecod instr;
     Fn_Instr vecFn[MAX_FN];
     Fn_Instr FnAct;
-    int err;
     uint32_t ip;
     uint16_t segact;
     
@@ -39,24 +38,24 @@ void ejecutar(MV *mv) {
         if (segact != SEGM_CS) 
             fin = 1;
         else {
-            decodificador(mv, &instr, &err);
-            if (err)
+            decodificador(mv, &instr, err);
+            if (*err)
                 fin = 1;
             else {
                 FnAct = vecFn[instr.opc];
                 if (FnAct) 
-                    FnAct(mv, &instr, &err);
+                    FnAct(mv, &instr, err);
                 else {
-                    err = ERR_OPINV;
+                    *err = ERR_OPINV;
                     fin = 1;
                 }
             }
         }
     }
 
-    if(err) {
+    if(*err) {
         printf("El programa finalizo por un error:\n");
-        switch (err)
+        switch (*err)
         {
         case ERR_DIV:
             printf("División por cero");

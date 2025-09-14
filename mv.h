@@ -22,6 +22,9 @@
 #define IDX_EDX 13
 #define IDX_EEX 14
 #define IDX_EFX 15
+#define IDX_OPC 4
+#define IDX_OP1 5
+#define IDX_OP2 6
 
 #define MAX_FN 32
 
@@ -43,7 +46,7 @@ typedef struct {
 } MV;
 
 void ini_mv(MV * mv);
-void ejecutar(MV *mv);
+void ejecutar(MV *mv, int *err);
 void incIP(MV *mv, uint16_t inc);
 
 #endif

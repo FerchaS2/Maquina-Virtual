@@ -71,5 +71,8 @@ void decodificador(MV *mv, InstrDecod *instr, int *err) {
             cargaOp(mv, t2, &(instr->op1), err);
         }
         //Sin operandos -> No hace nada, quedan con 0 ambos.
+        mv->registros[IDX_OPC] = instr->opc;
+        mv->registros[IDX_OP1] = instr->op1;
+        mv->registros[IDX_OP2] = instr->op2;
     }
 }

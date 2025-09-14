@@ -73,7 +73,7 @@ uint32_t getValorPorInstr(MV *mv, uint32_t op) {
 
     case 3: //memoria
         indexReg = (op >> 16) & 0x1F; //me quedo con los 5 bits que representan el registro en op
-        offset = (op & 0xFF) + (mv->registros[indexReg] & 0xFFFF);
+        offset = (op & 0xFFFF) + (mv->registros[indexReg] & 0xFFFF);
         segm = (mv->registros[indexReg] >> 16) & 0xFFFF;
         mv->registros[IDX_LAR] = (segm << 16) | offset;
         nbytes = 4;
@@ -621,7 +621,7 @@ void SYS_WRITE(MV *mv) {
             valor |= mv->memoria[dir_fisica + j];
         }
         
-        mostrar_valor(eax, valor, off);
+        mostrar_valor(eax, valor, off+(i*nbytes));
     }
 }
 
