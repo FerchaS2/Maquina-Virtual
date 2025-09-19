@@ -55,7 +55,7 @@ uint32_t getValorPorInstr(MV *mv, uint32_t op) {
     uint16_t offset, segm;
     uint32_t res, dir_fisica;
     int32_t resaux; //para extender signo en el inmediato
-    int err, nbytes;
+    int nbytes;
 
     switch (tipo)
     {
@@ -77,7 +77,7 @@ uint32_t getValorPorInstr(MV *mv, uint32_t op) {
         segm = (mv->registros[indexReg] >> 16) & 0xFFFF;
         mv->registros[IDX_LAR] = (segm << 16) | offset;
         nbytes = 4;
-        traductor(mv, segm, offset, nbytes, &err, &dir_fisica);
+        traductor(mv, segm, offset, nbytes, &dir_fisica);
         mv->registros[IDX_MAR] = (nbytes << 16) | (dir_fisica & 0xFFFF);
         res = 0;
         res  = mv->memoria[dir_fisica]   << 24;
@@ -96,7 +96,7 @@ void setValorPorInstr(MV *mv, uint32_t op, uint32_t resultado) {
     uint8_t indexReg;
     uint16_t offset, segm;
     uint32_t dir_fisica;
-    int err, nbytes;
+    int nbytes;
 
     switch (tipo)
     {
@@ -107,17 +107,19 @@ void setValorPorInstr(MV *mv, uint32_t op, uint32_t resultado) {
 
     case 3: //memoria
         indexReg = (op >> 16) & 0x1F; //me quedo con los 5 bits que representan el registro en op
-        offset = (op & 0xFF) + (mv->registros[indexReg] & 0xFFFF);
+        offset = (op & 0xFFFF) + (mv->registros[indexReg] & 0xFFFF);
         segm = (mv->registros[indexReg] >> 16) & 0xFFFF;
         mv->registros[IDX_LAR] = (segm << 16) | offset;
         nbytes = 4;
-        traductor(mv, segm, offset, nbytes, &err, &dir_fisica);
-        mv->registros[IDX_MAR] = (nbytes << 16) | (dir_fisica & 0xFFFF);
-        mv->registros[IDX_MBR] = resultado;
-        mv->memoria[dir_fisica] = (resultado >> 24) & 0xFF;
-        mv->memoria[dir_fisica+1] = (resultado >> 16) & 0xFF;
-        mv->memoria[dir_fisica+2] = (resultado >> 8) & 0xFF;
-        mv->memoria[dir_fisica+3] = resultado & 0xFF;
+        traductor(mv, segm, offset, nbytes, &dir_fisica);
+        if (!(mv->err)) {
+            mv->registros[IDX_MAR] = (nbytes << 16) | (dir_fisica & 0xFFFF);
+            mv->registros[IDX_MBR] = resultado;
+            mv->memoria[dir_fisica] = (resultado >> 24) & 0xFF;
+            mv->memoria[dir_fisica+1] = (resultado >> 16) & 0xFF;
+            mv->memoria[dir_fisica+2] = (resultado >> 8) & 0xFF;
+            mv->memoria[dir_fisica+3] = resultado & 0xFF;
+        }
         break;
     }
 }
@@ -159,10 +161,9 @@ void divSigned(uint32_t val1, uint32_t val2, uint32_t *coc, uint32_t *resto) {
     *resto = (uint32_t)r;
 }
 
-void Fn_ADD(MV *mv, InstrDecod *instr, int *err) {
+void Fn_ADD(MV *mv, InstrDecod *instr) {
     uint32_t val1, val2, res;
     int32_t signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val1 = getValorPorInstr(mv, instr->op1);
@@ -178,23 +179,20 @@ void Fn_ADD(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_MOV(MV *mv, InstrDecod *instr, int *err) {
-    (void)err;
+void Fn_MOV(MV *mv, InstrDecod *instr) {
 
     setValorPorInstr(mv, instr->op1, getValorPorInstr(mv, instr->op2));
 }
 
-void Fn_STOP(MV *mv, InstrDecod *instr, int *err) {
+void Fn_STOP(MV *mv, InstrDecod *instr) {
     (void)instr;
-    (void)err;
 
     mv->registros[IDX_IP] = 0xFFFFFFFF;
 }
 
-void Fn_SUB(MV *mv, InstrDecod *instr, int *err) {
+void Fn_SUB(MV *mv, InstrDecod *instr) {
     uint32_t val1, val2, res;
     int32_t signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val1 = getValorPorInstr(mv, instr->op1);
@@ -210,7 +208,7 @@ void Fn_SUB(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_DIV(MV *mv, InstrDecod *instr, int *err) {
+void Fn_DIV(MV *mv, InstrDecod *instr) {
     uint32_t val1, val2, coc, resto;
     int32_t signedRes;
 
@@ -229,13 +227,12 @@ void Fn_DIV(MV *mv, InstrDecod *instr, int *err) {
         else if (signedRes == 0)
             mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
     } else
-        *err = ERR_DIV;
+        mv->err = ERR_DIV;
 }
 
-void Fn_MUL(MV *mv, InstrDecod *instr, int *err) {
+void Fn_MUL(MV *mv, InstrDecod *instr) {
     uint32_t val1, val2, res;
     int32_t signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val1 = getValorPorInstr(mv, instr->op1);
@@ -251,10 +248,9 @@ void Fn_MUL(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_CMP(MV *mv, InstrDecod *instr, int *err) {
+void Fn_CMP(MV *mv, InstrDecod *instr) {
     uint32_t val1, val2, res;
     int32_t signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val1 = getValorPorInstr(mv, instr->op1);
@@ -269,10 +265,9 @@ void Fn_CMP(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_SHL(MV *mv, InstrDecod *instr, int *err) {
+void Fn_SHL(MV *mv, InstrDecod *instr) {
     uint32_t val, cant, res;
     int32_t signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val = getValorPorInstr(mv, instr->op1);
@@ -288,10 +283,9 @@ void Fn_SHL(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_SHR(MV *mv, InstrDecod *instr, int *err) {
+void Fn_SHR(MV *mv, InstrDecod *instr) {
     uint32_t val, cant, res;
     int32_t signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val = getValorPorInstr(mv, instr->op1);
@@ -307,10 +301,9 @@ void Fn_SHR(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_SAR(MV *mv, InstrDecod *instr, int *err) {
+void Fn_SAR(MV *mv, InstrDecod *instr) {
     uint32_t val, cant, res;
     int32_t signedVal, signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val = getValorPorInstr(mv, instr->op1);
@@ -326,10 +319,9 @@ void Fn_SAR(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_AND(MV *mv, InstrDecod *instr, int *err) {
+void Fn_AND(MV *mv, InstrDecod *instr) {
     uint32_t val1, val2, res;
     int32_t signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val1 = getValorPorInstr(mv, instr->op1);
@@ -345,10 +337,9 @@ void Fn_AND(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_OR(MV *mv, InstrDecod *instr, int *err) {
+void Fn_OR(MV *mv, InstrDecod *instr) {
     uint32_t val1, val2, res;
     int32_t signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val1 = getValorPorInstr(mv, instr->op1);
@@ -364,10 +355,9 @@ void Fn_OR(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_XOR(MV *mv, InstrDecod *instr, int *err) {
+void Fn_XOR(MV *mv, InstrDecod *instr) {
     uint32_t val1, val2, res;
     int32_t signedRes;
-    (void)err;
 
     mv->registros[IDX_CC] = 0;
     val1 = getValorPorInstr(mv, instr->op1);
@@ -383,12 +373,12 @@ void Fn_XOR(MV *mv, InstrDecod *instr, int *err) {
         mv->registros[IDX_CC] |= FLAG_Z; // set bit Z
 }
 
-void Fn_SWAP(MV *mv, InstrDecod *instr, int *err) {
+void Fn_SWAP(MV *mv, InstrDecod *instr) {
     //Ya se verifica que el op1 nunca sea un inmediato al ser 2 op, por lo que solo debe verificarse el op2
     uint32_t val1, val2;
     
     if (((instr->op2 >> 24) & 0xFF) == 2)
-        *err = ERR_SWAP;
+        mv->err = ERR_SWAP;
     else {
         val1 = getValorPorInstr(mv, instr->op1);
         val2 = getValorPorInstr(mv, instr->op2);
@@ -397,9 +387,8 @@ void Fn_SWAP(MV *mv, InstrDecod *instr, int *err) {
     }
 }
 
-void Fn_LDL(MV *mv, InstrDecod *instr, int *err){
+void Fn_LDL(MV *mv, InstrDecod *instr){
     uint32_t val1, val2, res;
-    (void)err;
 
     val1 = getValorPorInstr(mv, instr->op1);
     val2 = getValorPorInstr(mv, instr->op2);
@@ -407,9 +396,8 @@ void Fn_LDL(MV *mv, InstrDecod *instr, int *err){
     setValorPorInstr(mv, instr->op1, res);
 }
 
-void Fn_LDH(MV *mv, InstrDecod *instr, int *err){
+void Fn_LDH(MV *mv, InstrDecod *instr){
     uint32_t val1, val2, res;
-    (void)err;
 
     val1 = getValorPorInstr(mv, instr->op1);
     val2 = getValorPorInstr(mv, instr->op2);
@@ -417,17 +405,15 @@ void Fn_LDH(MV *mv, InstrDecod *instr, int *err){
     setValorPorInstr(mv, instr->op1, res);
 }
 
-void Fn_RND(MV *mv, InstrDecod *instr, int *err){
+void Fn_RND(MV *mv, InstrDecod *instr){
     uint32_t max, res;
-    (void)err;
 
     max = getValorPorInstr(mv, instr->op2);
     res = rand() % (max+1);
     setValorPorInstr(mv, instr->op1, res);
 }
 
-void Fn_JZ(MV *mv, InstrDecod *instr, int *err) {
-    (void)err;
+void Fn_JZ(MV *mv, InstrDecod *instr) {
     uint32_t dest;
 
     if (mv->registros[IDX_CC] & FLAG_Z) {
@@ -436,8 +422,7 @@ void Fn_JZ(MV *mv, InstrDecod *instr, int *err) {
     }
 }
 
-void Fn_JP(MV *mv, InstrDecod *instr, int *err) {
-    (void)err;
+void Fn_JP(MV *mv, InstrDecod *instr) {
     uint32_t dest;
 
     // Positivo => N=0 y Z=0
@@ -447,8 +432,7 @@ void Fn_JP(MV *mv, InstrDecod *instr, int *err) {
     }
 }
 
-void Fn_JN(MV *mv, InstrDecod *instr, int *err) {
-    (void)err;
+void Fn_JN(MV *mv, InstrDecod *instr) {
     uint32_t dest;
 
     if (mv->registros[IDX_CC] & FLAG_N) {
@@ -457,8 +441,7 @@ void Fn_JN(MV *mv, InstrDecod *instr, int *err) {
     }
 }
 
-void Fn_JNZ(MV *mv, InstrDecod *instr, int *err) {
-    (void)err;
+void Fn_JNZ(MV *mv, InstrDecod *instr) {
     uint32_t dest;
 
     if (!(mv->registros[IDX_CC] & FLAG_Z)) {
@@ -467,8 +450,7 @@ void Fn_JNZ(MV *mv, InstrDecod *instr, int *err) {
     }
 }
 
-void Fn_JNP(MV *mv, InstrDecod *instr, int *err) {
-    (void)err;
+void Fn_JNP(MV *mv, InstrDecod *instr) {
     uint32_t dest;
 
     // No positivo => N=1 o Z=1
@@ -478,8 +460,7 @@ void Fn_JNP(MV *mv, InstrDecod *instr, int *err) {
     }
 }
 
-void Fn_JNN(MV *mv, InstrDecod *instr, int *err) {
-    (void)err;
+void Fn_JNN(MV *mv, InstrDecod *instr) {
     uint32_t dest;
 
     if (!(mv->registros[IDX_CC] & FLAG_N)) {
@@ -488,20 +469,19 @@ void Fn_JNN(MV *mv, InstrDecod *instr, int *err) {
     }
 }
 
-void Fn_JMP(MV *mv, InstrDecod *instr, int *err) {
-    (void)err;
+void Fn_JMP(MV *mv, InstrDecod *instr) {
     uint32_t dest;
 
     dest = getValorPorInstr(mv, instr->op1);
     mv->registros[IDX_IP] = (mv->registros[IDX_IP] & 0xFFFF0000) | (dest & 0x0000FFFF);
 }
 
-void Fn_NOT(MV *mv, InstrDecod *instr, int *err) {
+void Fn_NOT(MV *mv, InstrDecod *instr) {
     uint32_t val, res;
     int32_t signedRes;
 
     if (((instr->op1 >> 24) & 0xFF) == 0x02) { //es inmediato
-        *err = ERR_NOTINM;
+        mv->err = ERR_NOTINM;
     } else {
         mv->registros[IDX_CC] = 0;
         val = getValorPorInstr(mv, instr->op1);
@@ -517,9 +497,10 @@ void Fn_NOT(MV *mv, InstrDecod *instr, int *err) {
     }
 }
 
-uint32_t leer_valor(uint32_t modo) {
+uint32_t leer_valor(uint32_t modo, uint32_t dir) {
     int val = 0;
     char charaux[128];
+    printf("[%04x] ", dir);
 
     if (modo & MODE_DEC) {     // decimal
         scanf("%d", &val);
@@ -541,7 +522,7 @@ uint32_t leer_valor(uint32_t modo) {
 void SYS_READ(MV *mv) {
     uint32_t edx, ecx, eax, dir_fisica, valor;
     uint16_t segm, off;
-    int nbytes, cant, err;
+    int nbytes, cant;
 
     edx = mv->registros[IDX_EDX];
     ecx = mv->registros[IDX_ECX];
@@ -553,8 +534,8 @@ void SYS_READ(MV *mv) {
     cant   = ecx & 0xFFFF;          // cantidad de celdas
 
     for (int i = 0; i < cant; i++) {
-        traductor(mv, segm, off + i * nbytes, nbytes, &err, &dir_fisica);
-        valor = leer_valor(eax);
+        traductor(mv, segm, off + i * nbytes, nbytes, &dir_fisica);
+        valor = leer_valor(eax, off+(i*nbytes));
 
         for (int j = 0; j < nbytes; j++)
             mv->memoria[dir_fisica + j] = (valor >> (8*(nbytes-1-j))) & 0xFF;
@@ -601,7 +582,7 @@ void mostrar_valor(uint32_t modo, uint32_t valor, uint32_t dir) {
 void SYS_WRITE(MV *mv) {
     uint32_t edx, ecx, eax, dir_fisica, valor;
     uint16_t segm, off;
-    int nbytes, cant, err;
+    int nbytes, cant;
 
     edx = mv->registros[IDX_EDX];
     ecx = mv->registros[IDX_ECX];
@@ -613,7 +594,7 @@ void SYS_WRITE(MV *mv) {
     cant   = ecx & 0xFFFF;          // cantidad de celdas
 
     for (int i = 0; i < cant; i++) {
-        traductor(mv, segm, off + i * nbytes, nbytes, &err, &dir_fisica);
+        traductor(mv, segm, off + i * nbytes, nbytes, &dir_fisica);
         valor = 0;
 
         for (int j = 0; j < nbytes; j++) {
@@ -625,8 +606,7 @@ void SYS_WRITE(MV *mv) {
     }
 }
 
-void Fn_SYS(MV *mv, InstrDecod *instr, int *err) {
-    (void)err;
+void Fn_SYS(MV *mv, InstrDecod *instr) {
     int llamada = getValorPorInstr(mv, instr->op1);
     
     switch (llamada) //Hago case por si a futuro hay más llamadas

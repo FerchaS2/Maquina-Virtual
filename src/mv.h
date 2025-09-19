@@ -43,10 +43,11 @@ typedef struct {
     uint8_t memoria[MEM];
     SegDesc segmentos[CANT_SEGM];
     uint32_t registros[CANT_REG];
+    int err;
 } MV;
 
 void ini_mv(MV * mv);
-void ejecutar(MV *mv, int *err);
+void ejecutar(MV *mv);
 void incIP(MV *mv, uint16_t inc);
 
 #endif

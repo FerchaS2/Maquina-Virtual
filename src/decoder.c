@@ -4,7 +4,7 @@
 
 #define ERR_OP1INM 5
 
-void cargaOp(MV *mv, uint8_t tipo, uint32_t *dest, int *err) {
+void cargaOp(MV *mv, uint8_t tipo, uint32_t *dest) {
     uint32_t val = 0, dir_fis;
     uint16_t seg, off;
     uint32_t ip_val = mv->registros[IDX_IP];
@@ -14,16 +14,16 @@ void cargaOp(MV *mv, uint8_t tipo, uint32_t *dest, int *err) {
 
     switch (tipo) {
         case 1: // registro (1 byte)
-            traductor(mv, seg, off, 1, err, &dir_fis);
-            if (!*err) {
+            traductor(mv, seg, off, 1, &dir_fis);
+            if (!(mv->err)) {
                 val = mv->memoria[dir_fis];
                 incIP(mv, 1);
             }
             break;
 
         case 2: // inmediato (2 bytes)
-            traductor(mv, seg, off, 2, err, &dir_fis);
-            if (!*err) {
+            traductor(mv, seg, off, 2, &dir_fis);
+            if (!(mv->err)) {
                 val  = mv->memoria[dir_fis] << 8;
                 val |= mv->memoria[dir_fis+1];
                 incIP(mv, 2);
@@ -31,8 +31,8 @@ void cargaOp(MV *mv, uint8_t tipo, uint32_t *dest, int *err) {
             break;
 
         case 3: // memoria (3 bytes: segmento+offset)
-            traductor(mv, seg, off, 3, err, &dir_fis);
-            if (!*err) {
+            traductor(mv, seg, off, 3, &dir_fis);
+            if (!(mv->err)) {
                 val  = mv->memoria[dir_fis] << 16;
                 val |= mv->memoria[dir_fis+1] << 8;
                 val |= mv->memoria[dir_fis+2];
@@ -45,16 +45,15 @@ void cargaOp(MV *mv, uint8_t tipo, uint32_t *dest, int *err) {
 }
 
 
-void decodificador(MV *mv, InstrDecod *instr, int *err) {
+void decodificador(MV *mv, InstrDecod *instr) {
     uint32_t ip = mv->registros[IDX_IP];
     uint32_t dir_fis;
     uint8_t ipb, t1, t2;
 
     instr->op1 = instr->op2 = 0;
-    *err = 0;
-    traductor(mv, (ip >> 16) & 0xFFFF, ip & 0xFFFF, 1, err, &dir_fis);
+    traductor(mv, (ip >> 16) & 0xFFFF, ip & 0xFFFF, 1, &dir_fis);
 
-    if (!(*err)) {
+    if (!(mv->err)) {
         ipb = mv->memoria[dir_fis];
         instr->opc = ipb & 0x001F;
         t2  = (ipb >> 6) & 0x03;
@@ -63,12 +62,12 @@ void decodificador(MV *mv, InstrDecod *instr, int *err) {
 
         if (t1 && t2) { //dos operandos
             if (t1 != 0x02) { //el op1 no puede ser un inmediato
-                cargaOp(mv, t2, &(instr->op2), err);
-                cargaOp(mv, t1, &(instr->op1), err);
+                cargaOp(mv, t2, &(instr->op2));
+                cargaOp(mv, t1, &(instr->op1));
             } else
-                *err = ERR_OP1INM;
+                mv->err = ERR_OP1INM;
         } else if (t2) { //un operando
-            cargaOp(mv, t2, &(instr->op1), err);
+            cargaOp(mv, t2, &(instr->op1));
         }
         //Sin operandos -> No hace nada, quedan con 0 ambos.
         mv->registros[IDX_OPC] = instr->opc;

@@ -82,8 +82,9 @@ void printOperand(uint32_t op, char *vecREGS[]) {
                 printf("[%s]", vecREGS[indexReg]);
             break;
         }
-        default:
+        default: {
             printf(" ");
+        }
     }
 }
 
@@ -104,7 +105,7 @@ void mostrarInstr(InstrDecod *instr, char *vecMNEM[], char *vecREGS[]) {
 
 void desensamblar(MV *mv) {
     InstrDecod instr;
-    int fin = 0, err, tam;
+    int fin = 0, tam;
     char *vecMNEM[MAX_FN], *vecREGS[32];
     uint32_t ip_ini, ip_fin, dir_fis;
     uint16_t segact;
@@ -122,9 +123,9 @@ void desensamblar(MV *mv) {
             fin = 1;
         else {
             // obtengo dirección física inicial
-            traductor(mv, (ip_ini >> 16) & 0xFFFF, ip_ini & 0xFFFF, 1, &err, &dir_fis);
+            traductor(mv, (ip_ini >> 16) & 0xFFFF, ip_ini & 0xFFFF, 1, &dir_fis);
 
-            decodificador(mv, &instr, &err);
+            decodificador(mv, &instr);
             ip_fin = mv->registros[IDX_IP];
             tam = ip_fin - ip_ini; //cantidad de bytes de la instrucción
 

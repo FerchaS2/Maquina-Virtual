@@ -1,6 +1,8 @@
 #ifndef OPCODES_H
 #define OPCODES_H
 
+//.h exclusivamente para declarar constantes
+
 // Instrucciones sin operandos
 #define OPC_STOP 0x0F
 

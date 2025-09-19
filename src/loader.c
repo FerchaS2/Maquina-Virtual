@@ -2,30 +2,32 @@
 #include <string.h>
 #include <stdio.h>
 
-void carga_prog(MV * mv, const char * filename, int *err) {
+void carga_prog(MV * mv, const char * filename) {
     FILE * arch = fopen(filename,"rb");
     char id[6];
     uint8_t ver;
-    uint16_t tam_cod;
+    uint16_t tam_cod, high_tam, low_tam;
 
     if(!arch) {
         printf("Error al abrir el archivo");
-        *err = ERR_IO;
+        mv->err = ERR_IO;
     } else {
         fread(id, 5, 1, arch);
         if (strcmp(id, "VMX25") != 0) {
             printf("Identificador incorrecto\n");
-            *err = ERR_ID;
+            mv->err = ERR_ID;
         } else {
             fread(&ver, 1, 1, arch);
             if (ver != 1) {
                 printf("Versión incorrecta\n");
-                *err = ERR_VER;
+                mv->err = ERR_VER;
             } else {
-                fread(&tam_cod, 2, 1, arch);
+                fread(&high_tam, 1, 1, arch);
+                fread(&low_tam, 1, 1, arch);
+                tam_cod = (high_tam << 8) | low_tam;
                 if (tam_cod > MEM) {
                     printf("Código demasiado grande\n");
-                    *err = ERR_COD;
+                    mv->err = ERR_COD;
                 } else {
                     mv->segmentos[0].base = 0;
                     mv->segmentos[0].tam = tam_cod;
@@ -35,7 +37,6 @@ void carga_prog(MV * mv, const char * filename, int *err) {
                     mv->registros[IDX_CS] = 0; //CS = 26 y DS = 27
                     mv->registros[IDX_DS] = (1 << 16) | 0; // DS = 00 01 00 00
                     mv->registros[IDX_IP] = mv->registros[IDX_CS];
-                    *err = 0;
                 }
             }
         }

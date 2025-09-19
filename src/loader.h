@@ -8,6 +8,6 @@
 #define ERR_VER 3
 #define ERR_COD 4
 
-void carga_prog(MV * mv, const char * filename, int *err);
+void carga_prog(MV * mv, const char * filename);
 
 #endif

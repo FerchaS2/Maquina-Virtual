@@ -8,6 +8,7 @@ void ini_mv(MV * mv) {
     memset(mv->memoria, 0, MEM);
     memset(mv->registros, 0, sizeof(mv->registros));
     memset(mv->segmentos, 0, sizeof(mv->segmentos));
+    mv->err = 0;
 }
 
 void incIP(MV *mv, uint16_t inc) {
@@ -22,7 +23,7 @@ void incIP(MV *mv, uint16_t inc) {
 }
 
 
-void ejecutar(MV *mv, int *err) {
+void ejecutar(MV *mv) {
     int fin = 0;
     InstrDecod instr;
     Fn_Instr vecFn[MAX_FN];
@@ -38,43 +39,44 @@ void ejecutar(MV *mv, int *err) {
         if (segact != SEGM_CS) 
             fin = 1;
         else {
-            decodificador(mv, &instr, err);
-            if (*err)
+            decodificador(mv, &instr);
+            if (mv->err)
                 fin = 1;
             else {
                 FnAct = vecFn[instr.opc];
-                if (FnAct) 
-                    FnAct(mv, &instr, err);
+                if (FnAct) {
+                    FnAct(mv, &instr);
+                }
                 else {
-                    *err = ERR_OPINV;
+                    mv->err = ERR_OPINV;
                     fin = 1;
                 }
             }
         }
     }
 
-    if(*err) {
+    if(mv->err) {
         printf("El programa finalizo por un error:\n");
-        switch (*err)
+        switch (mv->err)
         {
         case ERR_DIV:
-            printf("División por cero");
+            printf("  -> División por cero");
             break;
         
         case ERR_SWAP:
-            printf("SWAP");
+            printf("  -> SWAP tiene inmediatos");
             break;
 
         case ERR_OPINV:
-            printf("Operación inválida");
+            printf("  -> Operación inválida");
             break;
 
         case 6:
-            printf("Fuera de segmento");
+            printf("  -> Fuera de segmento");
             break;
 
         default:
-            printf("Error no implementado");
+            printf("  -> Error no implementado");
             break;
         }
     }

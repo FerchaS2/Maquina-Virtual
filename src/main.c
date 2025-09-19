@@ -19,16 +19,14 @@ int main(int argc, char const *argv[]) {
 
     MV mv;
     const char *filename = argv[1];
-    int err;
 
-    
     ini_mv(&mv);
 
-    carga_prog(&mv, filename, &err);
+    carga_prog(&mv, filename);
 
-    if (!err) {
-        ejecutar(&mv, &err);
-        if (argc > 2 && (strcmp(argv[2], "-d") == 0) && !err) {
+    if (!(mv.err)) {
+        ejecutar(&mv);
+        if (argc > 2 && (strcmp(argv[2], "-d") == 0) && !(mv.err)) {
             printf("\n================ DESENSAMBLADO ================\n");
             desensamblar(&mv);
         }
