@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Compilar VMX",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "-Wall",
+        "-Wextra",
+        "-g3",
+        "-Isrc",
+        "src/main.c",
+        "src/mv.c",
+        "src/loader.c",
+        "src/memory.c",
+        "src/decoder.c",
+        "src/instrucciones.c",
+        "src/desensamblador.c",
+        "-o",
+        "vmx.exe"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gcc"]
+    }
+  ]
+}

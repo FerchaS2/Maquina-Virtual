@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "stdio.h": "c",
+        "stdlib.h": "c",
+        "string.h": "c",
+        "mv.h": "c",
+        "decoder.h": "c",
+        "opcodes.h": "c",
+        "time.h": "c"
+    }
+}
