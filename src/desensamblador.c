@@ -143,7 +143,7 @@ void desensamblar(MV *mv) {
             printf("| ");
             mostrarInstr(&instr, vecMNEM, vecREGS);
 
-            if (instr.opc == OPC_STOP)
+            if ((instr.opc == OPC_STOP) || (instr.opc == 0 && instr.op1 == 0)) //si son los dos 0 es pq no hay STOP o se llamó a SYS 0 (que no existe)
                 fin = 1;
         }
     }
