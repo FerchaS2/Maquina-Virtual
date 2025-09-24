@@ -147,4 +147,5 @@ void desensamblar(MV *mv) {
                 fin = 1;
         }
     }
+    mv->registros[IDX_IP] = mv->registros[IDX_CS];
 }

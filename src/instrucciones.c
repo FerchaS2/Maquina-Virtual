@@ -78,13 +78,15 @@ uint32_t getValorPorInstr(MV *mv, uint32_t op) {
         mv->registros[IDX_LAR] = (segm << 16) | offset;
         nbytes = 4;
         traductor(mv, segm, offset, nbytes, &dir_fisica);
-        mv->registros[IDX_MAR] = (nbytes << 16) | (dir_fisica & 0xFFFF);
-        res = 0;
-        res  = mv->memoria[dir_fisica]   << 24;
-        res |= mv->memoria[dir_fisica+1] << 16;
-        res |= mv->memoria[dir_fisica+2] << 8;
-        res |= mv->memoria[dir_fisica+3];
-        mv->registros[IDX_MBR] = res;
+        if (!(mv->err)) {
+            mv->registros[IDX_MAR] = (nbytes << 16) | (dir_fisica & 0xFFFF);
+            res = 0;
+            res  = mv->memoria[dir_fisica]   << 24;
+            res |= mv->memoria[dir_fisica+1] << 16;
+            res |= mv->memoria[dir_fisica+2] << 8;
+            res |= mv->memoria[dir_fisica+3];
+            mv->registros[IDX_MBR] = res;
+        }
         break;
     }
 

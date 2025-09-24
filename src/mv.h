@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #define SEGM_CS 0x0000
-#define SEGM_DS 0x0100
+#define SEGM_DS 0x0001
 
 #define IDX_CS 26
 #define IDX_DS 27

@@ -25,11 +25,12 @@ int main(int argc, char const *argv[]) {
     carga_prog(&mv, filename);
 
     if (!(mv.err)) {  //Para propositos de testing recordar que el desensamblado no resetea el IP
-        ejecutar(&mv);
         if (argc > 2 && (strcmp(argv[2], "-d") == 0) && !(mv.err)) {
             printf("\n================ DESENSAMBLADO ================\n");
             desensamblar(&mv);
         }
+        printf("\n================ EJECUCION ================\n");
+        ejecutar(&mv);
     } else
         printf("Error al cargar el programa\n");
 
