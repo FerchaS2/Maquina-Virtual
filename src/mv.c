@@ -56,27 +56,27 @@ void ejecutar(MV *mv) {
     }
 
     if(mv->err) {
-        printf("El programa finalizo por un error:\n");
+        printf("\nEl programa finalizo por un error:\n");
         switch (mv->err)
         {
         case ERR_DIV:
-            printf("  -> División por cero");
+            printf("  -> División por cero\n");
             break;
         
         case ERR_SWAP:
-            printf("  -> SWAP tiene inmediatos");
+            printf("  -> SWAP tiene inmediatos\n");
             break;
 
         case ERR_OPINV:
-            printf("  -> Operación inválida");
+            printf("  -> Operación inválida\n");
             break;
 
         case 6:
-            printf("  -> Fuera de segmento");
+            printf("  -> Fuera de segmento\n");
             break;
 
         default:
-            printf("  -> Error no implementado");
+            printf("  -> Error no implementado\n");
             break;
         }
     }

@@ -126,26 +126,31 @@ void desensamblar(MV *mv) {
             traductor(mv, (ip_ini >> 16) & 0xFFFF, ip_ini & 0xFFFF, 1, &dir_fis);
 
             decodificador(mv, &instr);
-            ip_fin = mv->registros[IDX_IP];
-            tam = ip_fin - ip_ini; //cantidad de bytes de la instrucción
+            if (!(instr.opc == 0 && instr.op1 == 0)) { //si son los dos 0 es pq no hay STOP o se llamó a SYS 0 (que no existe)
+                ip_fin = mv->registros[IDX_IP];
+                tam = ip_fin - ip_ini; //cantidad de bytes de la instrucción
 
-            // imprimo dirección física y bytes de la instrucción
-            printf("[%04X] ", dir_fis);
+                // imprimo dirección física y bytes de la instrucción
+                printf("[%04X] ", dir_fis);
 
-            for (int i = 0; i < tam; i++) {
-                printf("%02X ", mv->memoria[dir_fis + i]);
-            }
-            // relleno para alinear hasta 7 bytes
-            for (int i = tam; i < 7; i++) {
-                printf("   ");
-            }
+                for (int i = 0; i < tam; i++) {
+                    printf("%02X ", mv->memoria[dir_fis + i]);
+                }
+                // relleno para alinear hasta 7 bytes
+                for (int i = tam; i < 7; i++) {
+                    printf("   ");
+                }
 
-            printf("| ");
-            mostrarInstr(&instr, vecMNEM, vecREGS);
+                printf("| ");
+                mostrarInstr(&instr, vecMNEM, vecREGS);
 
-            if ((instr.opc == OPC_STOP) || (instr.opc == 0 && instr.op1 == 0)) //si son los dos 0 es pq no hay STOP o se llamó a SYS 0 (que no existe)
+                if (instr.opc == OPC_STOP) 
+                    fin = 1;
+            } else 
                 fin = 1;
+            
         }
     }
     mv->registros[IDX_IP] = mv->registros[IDX_CS];
+    mv->err = 0;
 }

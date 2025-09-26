@@ -537,7 +537,7 @@ void SYS_READ(MV *mv) {
 
     for (int i = 0; i < cant; i++) {
         traductor(mv, segm, off + i * nbytes, nbytes, &dir_fisica);
-        valor = leer_valor(eax, off+(i*nbytes));
+        valor = leer_valor(eax, dir_fisica);
 
         for (int j = 0; j < nbytes; j++)
             mv->memoria[dir_fisica + j] = (valor >> (8*(nbytes-1-j))) & 0xFF;
@@ -604,7 +604,7 @@ void SYS_WRITE(MV *mv) {
             valor |= mv->memoria[dir_fisica + j];
         }
         
-        mostrar_valor(eax, valor, off+(i*nbytes));
+        mostrar_valor(eax, valor, dir_fisica);
     }
 }
 
