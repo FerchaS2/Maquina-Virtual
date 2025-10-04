@@ -130,22 +130,23 @@ void desensamblar(MV *mv) {
                 ip_fin = mv->registros[IDX_IP];
                 tam = ip_fin - ip_ini; //cantidad de bytes de la instrucción
 
-                // imprimo dirección física y bytes de la instrucción
-                printf("[%04X] ", dir_fis);
-
-                for (int i = 0; i < tam; i++) {
-                    printf("%02X ", mv->memoria[dir_fis + i]);
-                }
-                // relleno para alinear hasta 7 bytes
-                for (int i = tam; i < 7; i++) {
-                    printf("   ");
-                }
-
-                printf("| ");
-                mostrarInstr(&instr, vecMNEM, vecREGS);
-
-                if (instr.opc == OPC_STOP) 
+                if (ip_fin - ip_ini == 0)
                     fin = 1;
+                else {
+                    // imprimo dirección física y bytes de la instrucción
+                    printf("[%04X] ", dir_fis);
+
+                    for (int i = 0; i < tam; i++) {
+                        printf("%02X ", mv->memoria[dir_fis + i]);
+                    }
+                    // relleno para alinear hasta 7 bytes
+                    for (int i = tam; i < 7; i++) {
+                        printf("   ");
+                    }
+
+                    printf("| ");
+                    mostrarInstr(&instr, vecMNEM, vecREGS);
+                }
             } else 
                 fin = 1;
             

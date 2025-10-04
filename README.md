@@ -36,7 +36,3 @@ Desde la carpeta del proyecto en la consola:
  - archivo.vmx — archivo binario del programa a cargar.
 
  - -d — opcional: activa el modo desensamblador, muestra el código en assembler del programa.
-
-### Errores conocidos
-
- - El desensamblador termina su ejecución al primer STOP encontrado, en casos donde no esta estructurado el programa no muestra el programa completo. Un ejemplo de este caso es situaciones donde se ponen instrucciones luego del STOP, se llega a ellas con un JMP y luego se vuelve al flujo original con otro JMP.

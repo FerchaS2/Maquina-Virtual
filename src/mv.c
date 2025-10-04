@@ -4,11 +4,14 @@
 
 #define ERR_OPINV 11
 
-void ini_mv(MV * mv) {
-    memset(mv->memoria, 0, MEM);
+void ini_mv(MV * mv, uint32_t memoria_total, int argc, char *argv[]) {
+    mv->memoria = calloc(memoria_total, 1);
+    mv->memoria_total = memoria_total;
     memset(mv->registros, 0, sizeof(mv->registros));
     memset(mv->segmentos, 0, sizeof(mv->segmentos));
     mv->err = 0;
+
+    carga_parametros(mv, argc, argv);
 }
 
 void incIP(MV *mv, uint16_t inc) {
@@ -20,6 +23,53 @@ void incIP(MV *mv, uint16_t inc) {
     mv->registros[IDX_IP] = (seg << 16) | off; //dejo sin tocar el segmento e incremento el offset
 
     //la validación de segmentos la hago en el traductor, esta función sólo incrementa IP
+}
+
+void carga_parametros(MV * mv, int argc, char *argv[]) {
+    int i = 1, cont, j;
+    uint32_t base, pos, puntero;
+
+    while (i < argc && strcmp(argv[i], "-p") != 0) {
+        i++;
+    }
+
+    if (i == argc) {
+        mv->argc = 0;
+        mv->argv = NULL;
+        mv->registros[IDX_PS] = 0xFFFFFFFF;
+    } else {   // Si llegamos hasta acá significa que sí hay PARAM SEGMENT
+        mv->registros[IDX_PS] = 0x0000000;
+        mv->segmentos[mv->registros[IDX_PS]].base = 0;
+
+        cont = argc - i - 1;   // cantidad de parámetros
+        mv->argc = cont;
+
+        base = mv->segmentos[mv->registros[IDX_PS]].base;
+        pos = base; // posición actual dentro de memoria
+        uint32_t ptrs[cont]; // offsets de cada string
+
+        for (j = 0; j < cont; j++) {
+            char *p = argv[i + 1 + j];
+            int len = strlen(p) + 1; // incluye el \0
+            ptrs[j] = pos - base;    // offset dentro del segmento, la base siempre es 0, pero quizás en algún momento podría cambiar
+            memcpy(&mv->memoria[pos], p, len);
+            pos += len;
+        }
+
+        // Guardar los punteros en BIG-ENDIAN
+        for (j = 0; j < cont; j++) {
+            puntero = (mv->registros[IDX_PS] << 16) | ptrs[j];
+            mv->memoria[pos + 0] = (puntero >> 24) & 0xFF;
+            mv->memoria[pos + 1] = (puntero >> 16) & 0xFF;
+            mv->memoria[pos + 2] = (puntero >> 8) & 0xFF;
+            mv->memoria[pos + 3] = puntero & 0xFF;
+            pos += 4;
+        }
+
+        // Actualizar la MV
+        mv->segmentos[mv->registros[IDX_PS]].tam = pos - base;
+        mv->argv = (char **)(mv->memoria + pos - cont * 4);     // posición de los punteros
+    }
 }
 
 
@@ -54,6 +104,8 @@ void ejecutar(MV *mv) {
             }
         }
     }
+
+// RECORDAR HACER FREE DE TODOS LAS VARIABLES DINÁMICAS
 
     if(mv->err) {
         printf("\nEl programa finalizo por un error:\n");

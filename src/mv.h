@@ -5,8 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define SEGM_CS 0x0000
-#define SEGM_DS 0x0001
+#define SEGM_CS 0x000
 
 #define IDX_CS 26
 #define IDX_DS 27
@@ -25,6 +24,12 @@
 #define IDX_OPC 4
 #define IDX_OP1 5
 #define IDX_OP2 6
+#define IDX_SP 7
+#define IDX_BP 8
+#define IDX_ES 28
+#define IDX_SS 29
+#define IDX_KS 30
+#define IDX_PS 31
 
 #define MAX_FN 32
 
@@ -40,14 +45,17 @@ typedef struct {
 } SegDesc;
 
 typedef struct {
-    uint8_t memoria[MEM];
+    uint8_t *memoria;
+    uint32_t memoria_total;
     SegDesc segmentos[CANT_SEGM];
     uint32_t registros[CANT_REG];
-    int err;
+    int err, argc;
+    char * argv;
 } MV;
 
-void ini_mv(MV * mv);
+void ini_mv(MV * mv, uint32_t memoria_total, int argc, char *argv[]);
 void ejecutar(MV *mv);
 void incIP(MV *mv, uint16_t inc);
+void carga_parametros(MV * mv, int argc, char *argv[]);
 
 #endif
