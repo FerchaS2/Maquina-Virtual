@@ -28,8 +28,12 @@ void ini_VecFn(Fn_Instr *vec) {
     vec[OPC_JNP]  = Fn_JNP;
     vec[OPC_JNN]  = Fn_JNN;
     vec[OPC_NOT]  = Fn_NOT;
+    vec[OPC_PUSH]  = Fn_PUSH;
+    vec[OPC_POP]  = Fn_POP;
+    vec[OPC_CALL]  = Fn_CALL;
 
     vec[OPC_STOP] = Fn_STOP;
+    vec[OPC_RET]  = Fn_RET;
 
     vec[OPC_MOV]  = Fn_MOV;
     vec[OPC_ADD]  = Fn_ADD;
@@ -51,7 +55,7 @@ void ini_VecFn(Fn_Instr *vec) {
 
 uint32_t getValorPorInstr(MV *mv, uint32_t op) {
     uint8_t tipo = (op >> 24) & 0xFF; //saco el tipo de operando
-    uint8_t indexReg;
+    uint8_t indexReg, sec, tam_celda, byteR;
     uint16_t offset, segm;
     uint32_t res, dir_fisica;
     int32_t resaux; //para extender signo en el inmediato
@@ -59,35 +63,53 @@ uint32_t getValorPorInstr(MV *mv, uint32_t op) {
 
     switch (tipo)
     {
-    case 1: //registro
-        indexReg = op & 0xFF;
+    case 1: { //registro
+        indexReg = op & 0x1F;
+        sec = (op >> 6) & 0x03; // sector del registro
         res = mv->registros[indexReg];
+        switch (sec) {
+            case 0b01: res = res & 0xFF; break;                 // AL
+            case 0b10: res = (res >> 8) & 0xFF; break;          // AH
+            case 0b11: res = res & 0xFFFF; break;               // AXç
+            default: break;                                     // EAX completo
+        }
         break;
+    }
     
-    case 2: //inmediato
+    case 2: { //inmediato
         res = op & 0x0000FFFF;
         resaux = res; //utilizo resaux, que es signed, para extender el signo
         resaux = (resaux << 16) >> 16;
         res = resaux;
         break;
+    }
 
-    case 3: //memoria
-        indexReg = (op >> 16) & 0x1F; //me quedo con los 5 bits que representan el registro en op
+    case 3: { //memoria
+        byteR = (op >> 16) & 0xFF;          //tomo el byte del registro y del tamaño de celda
+        indexReg = byteR & 0x1F;            //me quedo con los 5 bits que representan el registro en op
+        tam_celda = (byteR >> 6) & 0x03;    //tamaño de la celda
         offset = (op & 0xFFFF) + (mv->registros[indexReg] & 0xFFFF);
         segm = (mv->registros[indexReg] >> 16) & 0xFFFF;
         mv->registros[IDX_LAR] = (segm << 16) | offset;
-        nbytes = 4;
+
+        switch (tam_celda) {
+            case 0b00: nbytes = 4; break;  // long
+            case 0b10: nbytes = 2; break;  // word
+            case 0b11: nbytes = 1; break;  // byte
+            default: nbytes = 4; break;
+        }
+
         traductor(mv, segm, offset, nbytes, &dir_fisica);
+
         if (!(mv->err)) {
             mv->registros[IDX_MAR] = (nbytes << 16) | (dir_fisica & 0xFFFF);
             res = 0;
-            res  = mv->memoria[dir_fisica]   << 24;
-            res |= mv->memoria[dir_fisica+1] << 16;
-            res |= mv->memoria[dir_fisica+2] << 8;
-            res |= mv->memoria[dir_fisica+3];
+            for (int i = 0; i < nbytes; i++)
+                res |= mv->memoria[dir_fisica + i] << (8 * (nbytes - 1 - i)); // big endian
             mv->registros[IDX_MBR] = res;
         }
         break;
+    }
     }
 
     return res;
@@ -95,34 +117,51 @@ uint32_t getValorPorInstr(MV *mv, uint32_t op) {
 
 void setValorPorInstr(MV *mv, uint32_t op, uint32_t resultado) {
     uint8_t tipo = (op >> 24) & 0xFF; //saco el tipo de operando
-    uint8_t indexReg;
+    uint8_t indexReg, sec, byteR, tam_celda;
     uint16_t offset, segm;
     uint32_t dir_fisica;
     int nbytes;
 
     switch (tipo)
     {
-    case 1: //registro
-        indexReg = op & 0xFF;
-        mv->registros[indexReg] = resultado;
+    case 1: { //registro
+        indexReg = op & 0x1F;
+        sec = (op >> 6) & 0x03; // sector del registro
+        uint32_t *reg = &mv->registros[indexReg];
+        switch (sec) {
+            case 0b00: *reg = resultado; break;      // EAX completo
+            case 0b01: *reg = (*reg & 0xFFFFFF00) | (resultado & 0xFF); break;      // AL
+            case 0b10: *reg = (*reg & 0xFFFF00FF) | ((resultado & 0xFF) << 8); break; // AH
+            case 0b11: *reg = (*reg & 0xFFFF0000) | (resultado & 0xFFFF); break;     // AX
+        }
         break;
+    }
 
-    case 3: //memoria
-        indexReg = (op >> 16) & 0x1F; //me quedo con los 5 bits que representan el registro en op
+    case 3: { //memoria
+        byteR = (op >> 16) & 0xFF;          //tomo el byte del registro y del tamaño de celda
+        indexReg = byteR & 0x1F;            //me quedo con los 5 bits que representan el registro en op
+        tam_celda = (byteR >> 6) & 0x03;    //tamaño de la celda
         offset = (op & 0xFFFF) + (mv->registros[indexReg] & 0xFFFF);
         segm = (mv->registros[indexReg] >> 16) & 0xFFFF;
         mv->registros[IDX_LAR] = (segm << 16) | offset;
-        nbytes = 4;
+
+        switch (tam_celda) {
+            case 0b00: nbytes = 4; break;
+            case 0b10: nbytes = 2; break;
+            case 0b11: nbytes = 1; break;
+            default: nbytes = 4; break;
+        }
+
         traductor(mv, segm, offset, nbytes, &dir_fisica);
+
         if (!(mv->err)) {
             mv->registros[IDX_MAR] = (nbytes << 16) | (dir_fisica & 0xFFFF);
             mv->registros[IDX_MBR] = resultado;
-            mv->memoria[dir_fisica] = (resultado >> 24) & 0xFF;
-            mv->memoria[dir_fisica+1] = (resultado >> 16) & 0xFF;
-            mv->memoria[dir_fisica+2] = (resultado >> 8) & 0xFF;
-            mv->memoria[dir_fisica+3] = resultado & 0xFF;
+            for (int i = 0; i < nbytes; i++)
+                mv->memoria[dir_fisica + i] = (resultado >> (8 * (nbytes - 1 - i))) & 0xFF;
         }
         break;
+    }
     }
 }
 

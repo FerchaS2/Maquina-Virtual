@@ -5,6 +5,7 @@
 
 // Instrucciones sin operandos
 #define OPC_STOP 0x0F
+#define OPC_RET  0x0E
 
 // Instrucciones con un operando
 #define OPC_SYS  0x00
@@ -34,5 +35,8 @@
 #define OPC_LDL  0x1D
 #define OPC_LDH  0x1E
 #define OPC_RND  0x1F
+#define OPC_PUSH 0x0B
+#define OPC_POP  0x0C
+#define OPC_CALL 0x0D
 
 #endif

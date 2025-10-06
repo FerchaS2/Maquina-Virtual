@@ -37,9 +37,13 @@ void Fn_JNZ(MV *mv, InstrDecod *instr);
 void Fn_JNP(MV *mv, InstrDecod *instr);
 void Fn_JNN(MV *mv, InstrDecod *instr);
 void Fn_NOT(MV *mv, InstrDecod *instr);
+void Fn_PUSH(MV *mv, InstrDecod *instr);
+void Fn_POP(MV *mv, InstrDecod *instr);
+void Fn_CALL(MV *mv, InstrDecod *instr);
 
 //SIN OPERANDOS
 void Fn_STOP(MV *mv, InstrDecod *instr);
+void Fn_RET(MV *mv, InstrDecod *instr);
 
 void ini_VecFn(Fn_Instr *vec);
 
