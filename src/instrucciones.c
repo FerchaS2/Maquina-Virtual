@@ -14,6 +14,7 @@
 #define MODE_BIN   0x10
 
 #define ERR_NOTINM 10
+#define ERR_STACKOVF 22
 
 void ini_VecFn(Fn_Instr *vec) {
     for (int i = 0; i < 32; i++)
@@ -53,6 +54,29 @@ void ini_VecFn(Fn_Instr *vec) {
     vec[OPC_RND]  = Fn_RND;
 }
 
+uint32_t sign_extender(uint32_t val, int nbytes) {
+    switch (nbytes) {
+        case 1:
+            if (val & 0x80)
+                val |= 0xFFFFFF00;  // extiende el bit 7
+            else
+                val &= 0x000000FF;
+            break;
+
+        case 2:
+            if (val & 0x8000)
+                val |= 0xFFFF0000;  // extiende el bit 15
+            else
+                val &= 0x0000FFFF;
+            break;
+
+        default:
+            val &= 0xFFFFFFFF; // no hace falta extender
+            break;
+    }
+    return val;
+}
+
 uint32_t getValorPorInstr(MV *mv, uint32_t op) {
     uint8_t tipo = (op >> 24) & 0xFF; //saco el tipo de operando
     uint8_t indexReg, sec, tam_celda, byteR;
@@ -67,12 +91,15 @@ uint32_t getValorPorInstr(MV *mv, uint32_t op) {
         indexReg = op & 0x1F;
         sec = (op >> 6) & 0x03; // sector del registro
         res = mv->registros[indexReg];
+
         switch (sec) {
             case 0b01: res = res & 0xFF; break;                 // AL
             case 0b10: res = (res >> 8) & 0xFF; break;          // AH
             case 0b11: res = res & 0xFFFF; break;               // AXç
             default: break;                                     // EAX completo
         }
+
+        res = sign_extender(res, nbytes);
         break;
     }
     
@@ -106,6 +133,7 @@ uint32_t getValorPorInstr(MV *mv, uint32_t op) {
             res = 0;
             for (int i = 0; i < nbytes; i++)
                 res |= mv->memoria[dir_fisica + i] << (8 * (nbytes - 1 - i)); // big endian
+            res = sign_extender(res, nbytes);
             mv->registros[IDX_MBR] = res;
         }
         break;
@@ -660,4 +688,48 @@ void Fn_SYS(MV *mv, InstrDecod *instr) {
         SYS_READ(mv);
         break;
     }
+}
+
+uint32_t getValorStack(MV *mv) {
+    uint16_t segm = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
+    uint16_t offset = mv->registros[IDX_SP] & 0xFFFF;
+    uint32_t dir_fisica, val = 0;
+    traductor(mv, segm, offset, 4, &dir_fisica);
+
+    for (int i = 0; i < 4; i++)
+        val |= mv->memoria[dir_fisica + i] << (8 * (3 - i)); // big endian
+    return val;
+}
+
+void setValorStack(MV *mv, uint32_t val) {
+    uint16_t segm = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
+    uint16_t offset = mv->registros[IDX_SP] & 0xFFFF;
+    uint32_t dir_fisica;
+    traductor(mv, segm, offset, 4, &dir_fisica);
+
+    for (int i = 0; i < 4; i++)
+        mv->memoria[dir_fisica + i] = (val >> (8 * (3 - i))) & 0xFF;
+}
+
+
+void Fn_PUSH(MV *mv, InstrDecod *instr) {
+    uint32_t val;
+    mv->registros[IDX_SP] -= 4;
+    if (mv->registros[IDX_SP] < mv->registros[IDX_SS])
+        mv->err = ERR_STACKOVF; // finaliza el programa
+    else {
+        val = getValorPorInstr(mv, instr->op1);
+    }
+}
+
+void Fn_POP(MV *mv, InstrDecod *instr) {
+
+}
+
+void Fn_CALL(MV *mv, InstrDecod *instr) {
+
+}
+
+void Fn_RET(MV *mv, InstrDecod *instr) {
+
 }

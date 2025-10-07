@@ -39,7 +39,7 @@ uint32_t leer32BE(FILE *arch) {
 void carga_vmx_v2(MV *mv, FILE *arch) {
     uint16_t tam_code, tam_data, tam_extra, tam_stack, tam_const;
     uint16_t entry_point;
-    uint32_t base = 0, total;
+    uint32_t base = 0, total, dir_code, dir_const;
     int seg_idx = 0;
 
     // --- leer header ---
@@ -63,12 +63,22 @@ void carga_vmx_v2(MV *mv, FILE *arch) {
             seg_idx++;
         }
 
+        // --- CONST SEGMENT ---
+        if (tam_const > 0) {
+            mv->segmentos[seg_idx].base = base;
+            mv->segmentos[seg_idx].tam = tam_const;
+            mv->registros[IDX_KS] = (seg_idx << 16);
+            dir_const = base;
+            base += tam_const;
+            seg_idx++;
+        } else mv->registros[IDX_KS] = 0xFFFFFFFF;
+
         // --- CODE SEGMENT ---
         if (tam_code > 0) {
             mv->segmentos[seg_idx].base = base;
             mv->segmentos[seg_idx].tam = tam_code;
             mv->registros[IDX_CS] = (seg_idx << 16);
-            fread(&mv->memoria[base], 1, tam_code, arch);
+            dir_code = base;
             base += tam_code;
             seg_idx++;
         } else mv->registros[IDX_CS] = 0xFFFFFFFF;
@@ -104,15 +114,11 @@ void carga_vmx_v2(MV *mv, FILE *arch) {
             mv->registros[IDX_SP] = 0xFFFFFFFF;
         } 
 
-        // --- CONST SEGMENT ---
-        if (tam_const > 0) {
-            mv->segmentos[seg_idx].base = base;
-            mv->segmentos[seg_idx].tam = tam_const;
-            mv->registros[IDX_KS] = (seg_idx << 16);
-            fread(&mv->memoria[mv->segmentos[seg_idx].base], 1, tam_const, arch);
-            base += tam_const;
-            seg_idx++;
-        } else mv->registros[IDX_KS] = 0xFFFFFFFF;
+        if (tam_code > 0)
+            fread(&mv->memoria[dir_code], 1, tam_code, arch);
+
+        if (tam_const > 0)
+            fread(&mv->memoria[dir_const], 1, tam_const, arch);
 
         // --- Inicializar IP ---
         if (mv->registros[IDX_CS] != 0xFFFFFFFF)
