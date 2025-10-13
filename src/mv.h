@@ -39,6 +39,7 @@
 #define MEM 16384
 #define CANT_SEGM 8
 #define CANT_REG 32
+#define LIM_VMINAME 50
 
 typedef struct {
     uint16_t base, tam;
@@ -49,8 +50,9 @@ typedef struct {
     uint32_t memoria_total;
     SegDesc segmentos[CANT_SEGM];
     uint32_t registros[CANT_REG];
-    int err, argc;
-    char * argv;
+    int err, argc, modo_debug, desensamblador;
+    uint32_t argv;
+    char archivo_vmi[LIM_VMINAME];
 } MV;
 
 void ini_mv(MV * mv, uint32_t memoria_total, int argc, char *argv[]);

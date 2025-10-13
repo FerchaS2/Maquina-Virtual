@@ -15,6 +15,11 @@
 
 #define ERR_NOTINM 10
 #define ERR_STACKOVF 22
+#define ERR_STACKUDR 23
+#define ERR_IO 1
+#define ERR_ABORT 24
+
+#define LIM_STRREAD 1024
 
 void ini_VecFn(Fn_Instr *vec) {
     for (int i = 0; i < 32; i++)
@@ -182,11 +187,15 @@ void setValorPorInstr(MV *mv, uint32_t op, uint32_t resultado) {
 
         traductor(mv, segm, offset, nbytes, &dir_fisica);
 
+        int total_bytes = 4; // siempre se manipulan valores de 32 bits
+        int start = total_bytes - nbytes;
+
         if (!(mv->err)) {
             mv->registros[IDX_MAR] = (nbytes << 16) | (dir_fisica & 0xFFFF);
-            mv->registros[IDX_MBR] = resultado;
+            uint32_t val_escrito = resultado & ((1U << (nbytes * 8)) - 1);
+            mv->registros[IDX_MBR] = sign_extend(val_escrito, nbytes);
             for (int i = 0; i < nbytes; i++)
-                mv->memoria[dir_fisica + i] = (resultado >> (8 * (nbytes - 1 - i))) & 0xFF;
+                mv->memoria[dir_fisica + i] = (resultado >> (8 * (total_bytes - 1 - (i + start)))) & 0xFF;
         }
         break;
     }
@@ -675,61 +684,206 @@ void SYS_WRITE(MV *mv) {
     }
 }
 
+void SYS_STRREAD(MV *mv) {
+    uint32_t edx = mv->registros[IDX_EDX];
+    uint16_t segm = (edx >> 16) & 0xFFFF;
+    uint16_t off  = edx & 0xFFFF;
+    int16_t maxlen = mv->registros[IDX_ECX] & 0xFFFF;  // CX
+    uint32_t dir_fisica;
+    char buffer[LIM_STRREAD];
+    int len;
+    
+    traductor(mv, segm, off, maxlen + 1, &dir_fisica);  // +1 por el \0
+    if (!(mv->err)) {
+        printf("[%04x] ", dir_fisica);
+
+        fflush(stdout);
+        fgets(buffer, sizeof(buffer), stdin);
+
+        len = strlen(buffer);
+        if (len && buffer[len - 1] == '\n') 
+            buffer[len - 1] = '\0'; // Elimino el salto de línea
+
+        if (maxlen != -1 && len > maxlen)
+            len = maxlen;  // Si se pasó lo seteo en el máximo
+
+        traductor(mv, segm, off, len + 1, &dir_fisica);
+        if (!(mv->err)) {
+            for (int i = 0; i < len; i++)
+                mv->memoria[dir_fisica + i] = (uint8_t)buffer[i];
+            mv->memoria[dir_fisica + len] = '\0'; // terminador
+        }
+    }
+}
+
+void SYS_STRWRITE(MV *mv) {
+    uint32_t edx = mv->registros[IDX_EDX];
+    uint16_t segm = (edx >> 16) & 0xFFFF;
+    uint16_t off  = edx & 0xFFFF;
+    uint32_t dir_fisica;
+    uint8_t c;
+
+    traductor(mv, segm, off, 1, &dir_fisica);
+    if (!(mv->err)) {
+        printf("[%04x] ", dir_fisica);
+        c = mv->memoria[dir_fisica];
+        while (c != '\0') {
+            putchar(c);
+            c = mv->memoria[dir_fisica++];
+        }
+        fflush(stdout);
+    }
+}
+
+void SYS_CLEAR(MV *mv) {
+    (void) mv; // No se usa la MV
+    system("cls || clear"); // cls para windows, clear para linux
+}
+
+void SYS_BREAKPOINT(MV *mv) {
+    if (mv->archivo_vmi[0] != '\0') { // se pasó archivo en parámetros
+        FILE * f = fopen(mv->archivo_vmi, "wb");
+        if (!f) {
+            printf("Error al crear archivo .vmi\n");
+            mv->err = ERR_IO;
+        } else {
+            // === HEADER ===
+            uint8_t header[8] = {'V', 'M', '1', '2', '5', 1, 0, 0};
+            uint16_t tam_kib = mv->memoria_total / 1024;
+            header[6] = (tam_kib >> 8) & 0xFF;
+            header[7] = tam_kib & 0xFF;
+            fwrite(header, 1, 8, f);
+
+            // === REGISTROS ===
+            fwrite(mv->registros, 1, 128, f);
+
+            // === SEGMENTOS ===
+            fwrite(mv->segmentos, 1, 32, f);
+
+            // === MEMORIA ===
+            fwrite(mv->memoria, 1, mv->memoria_total, f);
+
+            fclose(f);
+
+            // === LOOP DE DEBUG ===
+            printf("\n[BREAKPOINT] Imagen guardada en '%s'\n", mv->archivo_vmi);
+            printf("Comandos: (g) continuar | (q) salir | (Enter) paso a paso\n");
+
+            int c = getchar();
+            if (c == 'q' || c == 'Q') {
+                mv->modo_debug = 0; // desactivo paso a paso
+                mv->err = ERR_ABORT;
+            } else if (c == '\n') {
+                mv->modo_debug = 1; // modo paso a paso
+            } else if (c == 'g' || c == 'G') {
+                mv->modo_debug = 0;
+            }
+        }   
+    }
+}
+
 void Fn_SYS(MV *mv, InstrDecod *instr) {
     int llamada = getValorPorInstr(mv, instr->op1);
     
-    switch (llamada) //Hago case por si a futuro hay más llamadas
-    {
-    case 2:
-        SYS_WRITE(mv);
-        break;
-
-    case 1:
-        SYS_READ(mv);
-        break;
+    switch (llamada) {
+        case 1: SYS_READ(mv); break;
+        case 2: SYS_WRITE(mv); break;
+        case 3: SYS_STRREAD(mv); break;
+        case 4: SYS_STRWRITE(mv); break;
+        case 7: SYS_CLEAR(mv); break;
+        case 0xF: SYS_BREAKPOINT(mv); break;
     }
 }
 
 uint32_t getValorStack(MV *mv) {
     uint16_t segm = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
     uint16_t offset = mv->registros[IDX_SP] & 0xFFFF;
-    uint32_t dir_fisica, val = 0;
-    traductor(mv, segm, offset, 4, &dir_fisica);
+    uint32_t dir_fisica;
+    uint32_t val = 0;
 
-    for (int i = 0; i < 4; i++)
-        val |= mv->memoria[dir_fisica + i] << (8 * (3 - i)); // big endian
-    return val;
+    traductor(mv, segm, offset, 4, &dir_fisica);
+    if (!(mv->err)) {
+        mv->registros[IDX_MAR] = (4 << 16) | offset;
+        for (int i = 0; i < 4; i++)
+            val |= mv->memoria[dir_fisica + i] << (8 * (3 - i));
+        mv->registros[IDX_MBR] = val;
+        return val;
+    } else {
+        return 0;
+    }
 }
+
 
 void setValorStack(MV *mv, uint32_t val) {
     uint16_t segm = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
     uint16_t offset = mv->registros[IDX_SP] & 0xFFFF;
     uint32_t dir_fisica;
+
     traductor(mv, segm, offset, 4, &dir_fisica);
+
+    if (!(mv->err)){
+    mv->registros[IDX_MAR] = (4 << 16) | offset;
+    mv->registros[IDX_MBR] = val;
 
     for (int i = 0; i < 4; i++)
         mv->memoria[dir_fisica + i] = (val >> (8 * (3 - i))) & 0xFF;
+    }
+
 }
 
 
 void Fn_PUSH(MV *mv, InstrDecod *instr) {
     uint32_t val;
+
     mv->registros[IDX_SP] -= 4;
     if (mv->registros[IDX_SP] < mv->registros[IDX_SS])
         mv->err = ERR_STACKOVF; // finaliza el programa
     else {
         val = getValorPorInstr(mv, instr->op1);
+        setValorStack(mv, val);
     }
 }
 
 void Fn_POP(MV *mv, InstrDecod *instr) {
+    uint16_t segm = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
+    uint32_t val, limite = mv->segmentos[segm].base + mv->segmentos[segm].tam;
 
+    if (mv->registros[IDX_SP] >= limite) {  // Recordar que la pila se maneja al revés de la memoria
+        mv->err = ERR_STACKUDR;
+    } else {
+        val = getValorStack(mv);
+        if (!(mv->err)) {
+            setValorPorInstr(mv, instr->op1, val);
+            mv->registros[IDX_SP] += 4;
+        }
+    }
 }
+
 
 void Fn_CALL(MV *mv, InstrDecod *instr) {
+    uint32_t offset;
 
+    mv->registros[IDX_SP] -= 4;
+    if (mv->registros[IDX_SP] < mv->registros[IDX_SS]) {
+        mv->err = ERR_STACKOVF;
+    } else {
+        offset = getValorPorInstr(mv, instr->op1) & 0xFFFF;
+        mv->registros[IDX_IP] = (mv->registros[IDX_IP] & 0xFFFF0000) | offset;
+    }
 }
 
-void Fn_RET(MV *mv, InstrDecod *instr) {
 
+void Fn_RET(MV *mv, InstrDecod *instr) {
+    (void) instr;
+    uint16_t segm = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
+    uint32_t val, limite = mv->segmentos[segm].base + mv->segmentos[segm].tam;
+    if (mv->registros[IDX_SP] >= limite) {
+        mv->err = ERR_STACKUDR;
+    } else {
+        val = getValorStack(mv);
+        if (!(mv->err)) {
+                mv->registros[IDX_IP] = val;
+                mv->registros[IDX_SP] += 4;
+        }
+    }
 }

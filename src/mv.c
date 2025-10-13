@@ -4,12 +4,34 @@
 
 #define ERR_OPINV 11
 
-void ini_mv(MV * mv, uint32_t memoria_total, int argc, char *argv[]) {
+void ini_mv(MV * mv, int argc, char *argv[]) {
+    // Valores por defecto
+    uint32_t memoria_total = 16 * 1024; // 16 KiB por defecto
+    mv->archivo_vmi[0] = '\0';
+    mv->modo_debug = 0;
+    mv->err = 0;
+    mv->desensamblador = 0;
+
+    for (int i = 1; i < argc; i++) {
+        // Archivo .vmi (imagen)
+        if (strstr(argv[i], ".vmi")) {
+            strcpy(mv->archivo_vmi, argv[i]);
+        }
+
+        // Tamaño de memoria -> formato m=NN
+        else if (strncmp(argv[i], "m=", 2) == 0) {
+            memoria_total = atoi(argv[i] + 2) * 1024; // valor en KiB
+        }
+        
+        else if (strcmp(argv[i], "-d") == 0) {
+            mv->desensamblador = 1;
+        }
+    }
+
     mv->memoria = calloc(memoria_total, 1);
     mv->memoria_total = memoria_total;
     memset(mv->registros, 0, sizeof(mv->registros));
     memset(mv->segmentos, 0, sizeof(mv->segmentos));
-    mv->err = 0;
 
     carga_parametros(mv, argc, argv);
 }
@@ -35,7 +57,7 @@ void carga_parametros(MV * mv, int argc, char *argv[]) {
 
     if (i == argc) {
         mv->argc = 0;
-        mv->argv = NULL;
+        mv->argv = 0xFFFFFFFF;
         mv->registros[IDX_PS] = 0xFFFFFFFF;
     } else {   // Si llegamos hasta acá significa que sí hay PARAM SEGMENT
         mv->registros[IDX_PS] = 0x0000000;
@@ -68,7 +90,7 @@ void carga_parametros(MV * mv, int argc, char *argv[]) {
 
         // Actualizar la MV
         mv->segmentos[mv->registros[IDX_PS]].tam = pos - base;
-        mv->argv = (char **)(mv->memoria + pos - cont * 4);     // posición de los punteros
+        mv->argv = mv->segmentos[mv->registros[IDX_PS]].tam - cont * 4; // posición de los punteros
     }
 }
 

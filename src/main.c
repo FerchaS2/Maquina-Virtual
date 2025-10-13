@@ -13,8 +13,8 @@ int main(int argc, char const *argv[]) {
     srand(time(NULL));
 
     if (argc < 2) {
-    printf("Uso: %s filename.vmx [-d]\n", argv[0]);
-    return 1;
+        printf("Uso: %s [filename.vmx] [filename.vmi] [m=M] [-d] [-p param1 param2 ... paramN]\n", argv[0]);
+        return 1;
     }
 
     MV mv;
