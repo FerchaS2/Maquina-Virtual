@@ -45,6 +45,13 @@ void Fn_CALL(MV *mv, InstrDecod *instr);
 void Fn_STOP(MV *mv, InstrDecod *instr);
 void Fn_RET(MV *mv, InstrDecod *instr);
 
+//FUNCIONES DEL SYS
+void SYS_WRITE(MV *mv);
+void SYS_STRREAD(MV *mv);
+void SYS_STRWRITE(MV *mv);
+void SYS_CLEAR(MV *mv);
+void SYS_BREAKPOINT(MV *mv);
+
 void ini_VecFn(Fn_Instr *vec);
 
 #endif

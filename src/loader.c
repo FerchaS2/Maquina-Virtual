@@ -1,6 +1,7 @@
 #include "loader.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 void carga_vmx_v1(MV * mv, FILE * arch) {
     uint16_t tam_cod, high_tam, low_tam;

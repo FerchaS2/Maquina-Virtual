@@ -14,8 +14,12 @@ void ini_VecMNEM(char *vec[]) {
     vec[OPC_JNP]  = "JNP";
     vec[OPC_JNN]  = "JNN";
     vec[OPC_NOT]  = "NOT";
+    vec[OPC_PUSH]  = "PUSH";
+    vec[OPC_POP]  = "POP";
+    vec[OPC_CALL]  = "CALL";
 
     vec[OPC_STOP] = "STOP";
+    vec[OPC_RET]  = "RET";
 
     vec[OPC_MOV]  = "MOV";
     vec[OPC_ADD]  = "ADD";
@@ -46,6 +50,8 @@ void ini_VecREGS(char *vec[]) {
     vec[IDX_OPC] = "OPC";
     vec[IDX_OP1] = "OP1";
     vec[IDX_OP2] = "OP2";
+    vec[IDX_SP]  = "SP";
+    vec[IDX_BP]  = "BP";
 
     vec[IDX_EAX] = "EAX";
     vec[IDX_EBX] = "EBX";
@@ -59,27 +65,59 @@ void ini_VecREGS(char *vec[]) {
 
     vec[IDX_CS]  = "CS";
     vec[IDX_DS]  = "DS";
+    vec[IDX_ES]  = "ES";
+    vec[IDX_SS]  = "SS";
+    vec[IDX_KS]  = "KS";
+    vec[IDX_PS]  = "PS";
 }
 
 
 void printOperand(uint32_t op, char *vecREGS[]) {
-    uint8_t indexReg, tipo = (op >> 24) & 0xFF;
+    uint8_t indexReg, tipo = (op >> 24) & 0xFF, sec, byteR, tam_celda;
     uint16_t off;
+    char prefijo;
 
     switch (tipo) {
-        case 1: // registro
-            printf("%s", vecREGS[op & 0xFF]);
+        case 1: { // registro
+            indexReg = op & 0x1F;
+            sec = (op >> 6) & 0x03; // sector del registro
+
+            switch (sec) {
+                case 0b00: // registro de 4 bytes
+                    printf("%s", vecREGS[indexReg]);
+                    break;
+                case 0b01: // 4to byte -> AL, BL, CL, etc.
+                    printf("%cL", vecREGS[indexReg][1]);
+                    break;
+                case 0b10: // 3er byte -> AH, BH, CH, etc.
+                    printf("%cH", vecREGS[indexReg][1]);
+                    break;
+                case 0b11: // registro de 2 bytes
+                    printf("%s", vecREGS[indexReg] + 1); 
+                    break;
+            }
             break;
+        }
         case 2: // inmediato
             printf("%d", (int16_t)(op & 0xFFFF));
             break;
         case 3: { // memoria
-            indexReg = (op >> 16) & 0x1F; //me quedo con los 5 bits que representan el registro en op
+            byteR = (op >> 16) & 0xFF;          //tomo el byte del registro y del tamaño de celda
+            indexReg = byteR & 0x1F;            //me quedo con los 5 bits que representan el registro en op
+            tam_celda = (byteR >> 6) & 0x03;    //tamaño de la celda
             off = op & 0xFFFF;
+
+            switch (tam_celda) {
+                case 0b00: prefijo = 'l'; break; // long
+                case 0b10: prefijo = 'w'; break; // word
+                case 0b11: prefijo = 'b'; break; // byte
+                default: prefijo = '?'; break;
+            }
+
             if (off)
-                printf("[%s + %d]", vecREGS[indexReg], off);
+                printf("%c[%s + %d]", prefijo, vecREGS[indexReg], off);
             else
-                printf("[%s]", vecREGS[indexReg]);
+                printf("%c[%s]",prefijo, vecREGS[indexReg]);
             break;
         }
         default: {
@@ -105,53 +143,47 @@ void mostrarInstr(InstrDecod *instr, char *vecMNEM[], char *vecREGS[]) {
 
 void desensamblar(MV *mv) {
     InstrDecod instr;
-    int fin = 0, tam;
+    int tam;
     char *vecMNEM[MAX_FN], *vecREGS[32];
-    uint32_t ip_ini, ip_fin, dir_fis;
-    uint16_t segact;
+    uint32_t ip_ini, ip_fin, dir_fis, ip_aux;
+    uint16_t segm, off;
+    uint32_t tamCS;
 
+    ip_aux = mv->registros[IDX_IP]; // guardo el primer valor del ip para después retomarlo
     mv->registros[IDX_IP] = mv->registros[IDX_CS]; //posiciono IP en el comienzo del CODE SEGMENT
+    segm = mv->registros[IDX_CS] >> 16;
+    off = 0;
+    tamCS  = mv->segmentos[segm].tam;
 
     ini_VecREGS(vecREGS);
     ini_VecMNEM(vecMNEM);
 
-    while (!fin) {
+    while (off < tamCS) {
         ip_ini = mv->registros[IDX_IP];
-        segact = (ip_ini >> 16) & 0xFFFF;
 
-        if (segact != SEGM_CS)
-            fin = 1;
-        else {
-            // obtengo dirección física inicial
-            traductor(mv, (ip_ini >> 16) & 0xFFFF, ip_ini & 0xFFFF, 1, &dir_fis);
+        // obtengo dirección física inicial
+        traductor(mv, segm, ip_ini & 0xFFFF, 1, &dir_fis);
 
-            decodificador(mv, &instr);
-            if (!(instr.opc == 0 && instr.op1 == 0)) { //si son los dos 0 es pq no hay STOP o se llamó a SYS 0 (que no existe)
-                ip_fin = mv->registros[IDX_IP];
-                tam = ip_fin - ip_ini; //cantidad de bytes de la instrucción
+        decodificador(mv, &instr);
+        ip_fin = mv->registros[IDX_IP];
+        tam = ip_fin - ip_ini; //cantidad de bytes de la instrucción
 
-                if (ip_fin - ip_ini == 0)
-                    fin = 1;
-                else {
-                    // imprimo dirección física y bytes de la instrucción
-                    printf("[%04X] ", dir_fis);
+        // imprimo dirección física y bytes de la instrucción
+        printf("[%04X] ", dir_fis);
 
-                    for (int i = 0; i < tam; i++) {
-                        printf("%02X ", mv->memoria[dir_fis + i]);
-                    }
-                    // relleno para alinear hasta 7 bytes
-                    for (int i = tam; i < 7; i++) {
-                        printf("   ");
-                    }
-
-                    printf("| ");
-                    mostrarInstr(&instr, vecMNEM, vecREGS);
-                }
-            } else 
-                fin = 1;
-            
+        for (int i = 0; i < tam; i++) {
+            printf("%02X ", mv->memoria[dir_fis + i]);
         }
+        // relleno para alinear hasta 7 bytes
+        for (int i = tam; i < 7; i++) {
+            printf("   ");
+        }
+
+        printf("| ");
+        mostrarInstr(&instr, vecMNEM, vecREGS);
+
+        off = ip_fin & 0xFFFF;
     }
-    mv->registros[IDX_IP] = mv->registros[IDX_CS];
+    mv->registros[IDX_IP] = ip_aux;
     mv->err = 0;
 }

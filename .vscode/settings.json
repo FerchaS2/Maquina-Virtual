@@ -6,6 +6,7 @@
         "mv.h": "c",
         "decoder.h": "c",
         "opcodes.h": "c",
-        "time.h": "c"
+        "time.h": "c",
+        "memory.h": "c"
     }
 }

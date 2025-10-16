@@ -1,10 +1,11 @@
 #include "mv.h"
 #include "decoder.h"
 #include "instrucciones.h"
+#include <stdlib.h>
 
 #define ERR_OPINV 11
 
-void ini_mv(MV * mv, int argc, char *argv[]) {
+void ini_mv(MV * mv, int argc, char const *argv[]) {
     // Valores por defecto
     uint32_t memoria_total = 16 * 1024; // 16 KiB por defecto
     mv->archivo_vmi[0] = '\0';
@@ -47,9 +48,10 @@ void incIP(MV *mv, uint16_t inc) {
     //la validación de segmentos la hago en el traductor, esta función sólo incrementa IP
 }
 
-void carga_parametros(MV * mv, int argc, char *argv[]) {
-    int i = 1, cont, j;
+void carga_parametros(MV * mv, int argc, char const *argv[]) {
+    int i = 1, cont, j, len;
     uint32_t base, pos, puntero;
+    uint16_t segm;
 
     while (i < argc && strcmp(argv[i], "-p") != 0) {
         i++;
@@ -61,18 +63,19 @@ void carga_parametros(MV * mv, int argc, char *argv[]) {
         mv->registros[IDX_PS] = 0xFFFFFFFF;
     } else {   // Si llegamos hasta acá significa que sí hay PARAM SEGMENT
         mv->registros[IDX_PS] = 0x0000000;
-        mv->segmentos[mv->registros[IDX_PS]].base = 0;
+        segm = mv->registros[IDX_PS] >> 16;
+        mv->segmentos[segm].base = 0;
 
         cont = argc - i - 1;   // cantidad de parámetros
         mv->argc = cont;
 
-        base = mv->segmentos[mv->registros[IDX_PS]].base;
+        base = mv->segmentos[segm].base;
         pos = base; // posición actual dentro de memoria
         uint32_t ptrs[cont]; // offsets de cada string
 
         for (j = 0; j < cont; j++) {
-            char *p = argv[i + 1 + j];
-            int len = strlen(p) + 1; // incluye el \0
+            const char *p = argv[i + 1 + j];
+            len = strlen(p) + 1; // incluye el \0
             ptrs[j] = pos - base;    // offset dentro del segmento, la base siempre es 0, pero quizás en algún momento podría cambiar
             memcpy(&mv->memoria[pos], p, len);
             pos += len;
@@ -80,7 +83,7 @@ void carga_parametros(MV * mv, int argc, char *argv[]) {
 
         // Guardar los punteros en BIG-ENDIAN
         for (j = 0; j < cont; j++) {
-            puntero = (mv->registros[IDX_PS] << 16) | ptrs[j];
+            puntero = (segm << 16) | ptrs[j];
             mv->memoria[pos + 0] = (puntero >> 24) & 0xFF;
             mv->memoria[pos + 1] = (puntero >> 16) & 0xFF;
             mv->memoria[pos + 2] = (puntero >> 8) & 0xFF;
@@ -89,8 +92,8 @@ void carga_parametros(MV * mv, int argc, char *argv[]) {
         }
 
         // Actualizar la MV
-        mv->segmentos[mv->registros[IDX_PS]].tam = pos - base;
-        mv->argv = mv->segmentos[mv->registros[IDX_PS]].tam - cont * 4; // posición de los punteros
+        mv->segmentos[segm].tam = pos - base;
+        mv->argv = (segm << 16) | (mv->segmentos[segm].tam - cont * 4); // posición de los punteros
     }
 }
 
@@ -101,14 +104,14 @@ void ejecutar(MV *mv) {
     Fn_Instr vecFn[MAX_FN];
     Fn_Instr FnAct;
     uint32_t ip;
-    uint16_t segact;
+    uint16_t segact, segmCS = mv->registros[IDX_CS] >> 16;
     
     ini_VecFn(vecFn);
 
     while (!fin) {
         ip = mv->registros[IDX_IP];
         segact = (ip >> 16) & 0xFFFF;
-        if (segact != SEGM_CS) 
+        if (segact != segmCS) 
             fin = 1;
         else {
             decodificador(mv, &instr);
@@ -118,6 +121,9 @@ void ejecutar(MV *mv) {
                 FnAct = vecFn[instr.opc];
                 if (FnAct) {
                     FnAct(mv, &instr);
+                    if (!mv->err && mv->modo_debug) {
+                        SYS_BREAKPOINT(mv);
+                    }
                 }
                 else {
                     mv->err = ERR_OPINV;
@@ -127,6 +133,7 @@ void ejecutar(MV *mv) {
         }
     }
 
+    free(mv->memoria);
 // RECORDAR HACER FREE DE TODOS LAS VARIABLES DINÁMICAS
 
     if(mv->err) {
@@ -147,6 +154,18 @@ void ejecutar(MV *mv) {
 
         case 6:
             printf("  -> Fuera de segmento\n");
+            break;
+
+        case 22:
+            printf("  -> Stack overflow\n");
+            break;
+
+        case 23:
+            printf("  -> Stack underflow\n");
+            break;
+
+        case 24:
+            printf("  -> El usuario finalizó el programa\n");
             break;
 
         default:

@@ -5,8 +5,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#define SEGM_CS 0x000
-
 #define IDX_CS 26
 #define IDX_DS 27
 #define IDX_IP 3
@@ -55,9 +53,9 @@ typedef struct {
     char archivo_vmi[LIM_VMINAME];
 } MV;
 
-void ini_mv(MV * mv, uint32_t memoria_total, int argc, char *argv[]);
+void ini_mv(MV * mv, int argc, char const *argv[]);
 void ejecutar(MV *mv);
 void incIP(MV *mv, uint16_t inc);
-void carga_parametros(MV * mv, int argc, char *argv[]);
+void carga_parametros(MV * mv, int argc, char const *argv[]);
 
 #endif

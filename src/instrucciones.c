@@ -96,12 +96,13 @@ uint32_t getValorPorInstr(MV *mv, uint32_t op) {
         indexReg = op & 0x1F;
         sec = (op >> 6) & 0x03; // sector del registro
         res = mv->registros[indexReg];
+        nbytes = 4;
 
         switch (sec) {
-            case 0b01: res = res & 0xFF; break;                 // AL
-            case 0b10: res = (res >> 8) & 0xFF; break;          // AH
-            case 0b11: res = res & 0xFFFF; break;               // AXç
-            default: break;                                     // EAX completo
+            case 0b01: res = res & 0xFF; nbytes = 1; break;                 // AL
+            case 0b10: res = (res >> 8) & 0xFF; nbytes = 1; break;          // AH
+            case 0b11: res = res & 0xFFFF; nbytes = 2; break;               // AXç
+            default: break;                                                 // EAX completo
         }
 
         res = sign_extender(res, nbytes);
@@ -193,7 +194,7 @@ void setValorPorInstr(MV *mv, uint32_t op, uint32_t resultado) {
         if (!(mv->err)) {
             mv->registros[IDX_MAR] = (nbytes << 16) | (dir_fisica & 0xFFFF);
             uint32_t val_escrito = resultado & ((1U << (nbytes * 8)) - 1);
-            mv->registros[IDX_MBR] = sign_extend(val_escrito, nbytes);
+            mv->registros[IDX_MBR] = sign_extender(val_escrito, nbytes);
             for (int i = 0; i < nbytes; i++)
                 mv->memoria[dir_fisica + i] = (resultado >> (8 * (total_bytes - 1 - (i + start)))) & 0xFF;
         }
@@ -741,6 +742,8 @@ void SYS_CLEAR(MV *mv) {
 }
 
 void SYS_BREAKPOINT(MV *mv) {
+    int c;
+
     if (mv->archivo_vmi[0] != '\0') { // se pasó archivo en parámetros
         FILE * f = fopen(mv->archivo_vmi, "wb");
         if (!f) {
@@ -748,17 +751,35 @@ void SYS_BREAKPOINT(MV *mv) {
             mv->err = ERR_IO;
         } else {
             // === HEADER ===
-            uint8_t header[8] = {'V', 'M', '1', '2', '5', 1, 0, 0};
+            uint8_t header[8] = {'V', 'M', 'I', '2', '5', 1, 0, 0};
             uint16_t tam_kib = mv->memoria_total / 1024;
             header[6] = (tam_kib >> 8) & 0xFF;
             header[7] = tam_kib & 0xFF;
             fwrite(header, 1, 8, f);
 
-            // === REGISTROS ===
-            fwrite(mv->registros, 1, 128, f);
+            // === REGISTROS (128 bytes) ===
+            for (int i = 0; i < 32; i++) { // 32 registros * 4 bytes
+                uint32_t val = mv->registros[i];
+                uint8_t b[4];
+                b[0] = (val >> 24) & 0xFF;
+                b[1] = (val >> 16) & 0xFF;
+                b[2] = (val >> 8) & 0xFF;
+                b[3] = val & 0xFF;
+                fwrite(b, 1, 4, f);
+            }
 
-            // === SEGMENTOS ===
-            fwrite(mv->segmentos, 1, 32, f);
+            // === SEGMENTOS (32 bytes) ===
+            for (int i = 0; i < 8; i++) { // 8 segmentos * (base + tam)
+                uint16_t base = mv->segmentos[i].base;
+                uint16_t tam = mv->segmentos[i].tam;
+                uint8_t b[4] = {
+                    (base >> 8) & 0xFF,
+                    base & 0xFF,
+                    (tam >> 8) & 0xFF,
+                    tam & 0xFF
+                };
+                fwrite(b, 1, 4, f);
+            }
 
             // === MEMORIA ===
             fwrite(mv->memoria, 1, mv->memoria_total, f);
@@ -769,7 +790,7 @@ void SYS_BREAKPOINT(MV *mv) {
             printf("\n[BREAKPOINT] Imagen guardada en '%s'\n", mv->archivo_vmi);
             printf("Comandos: (g) continuar | (q) salir | (Enter) paso a paso\n");
 
-            int c = getchar();
+            c = getchar();
             if (c == 'q' || c == 'Q') {
                 mv->modo_debug = 0; // desactivo paso a paso
                 mv->err = ERR_ABORT;
@@ -845,8 +866,10 @@ void Fn_PUSH(MV *mv, InstrDecod *instr) {
 }
 
 void Fn_POP(MV *mv, InstrDecod *instr) {
-    uint16_t segm = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
-    uint32_t val, limite = mv->segmentos[segm].base + mv->segmentos[segm].tam;
+    uint32_t val;
+    uint16_t seg = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
+    uint32_t limite = mv->segmentos[seg].tam;
+    limite = mv->registros[IDX_SS] | limite;
 
     if (mv->registros[IDX_SP] >= limite) {  // Recordar que la pila se maneja al revés de la memoria
         mv->err = ERR_STACKUDR;

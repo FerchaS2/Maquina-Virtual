@@ -20,12 +20,12 @@ int main(int argc, char const *argv[]) {
     MV mv;
     const char *filename = argv[1];
 
-    //ini_mv(&mv);  <-- no ejecutar si es .vmi
+    ini_mv(&mv, argc, argv);
 
     carga_prog(&mv, filename);
 
     if (!(mv.err)) {
-        if (argc > 2 && (strcmp(argv[2], "-d") == 0) && !(mv.err)) {
+        if (mv.desensamblador) {
             printf("\n================ DESENSAMBLADO ================\n");
             desensamblar(&mv);
         }
