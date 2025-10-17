@@ -26,10 +26,10 @@ int main(int argc, char const *argv[]) {
 
     if (!(mv.err)) {
         if (mv.desensamblador) {
-            printf("\n================ DESENSAMBLADO ================\n");
+            printf("\n================== DESENSAMBLADO ==================\n");
             desensamblar(&mv);
         }
-        printf("\n================ EJECUCION ================\n");
+        printf("\n==================== EJECUCION ====================\n");
         ejecutar(&mv);
     } else
         printf("Error al cargar el programa\n");

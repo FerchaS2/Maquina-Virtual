@@ -155,6 +155,10 @@ void ejecutar(MV *mv) {
             printf("  -> Fuera de segmento\n");
             break;
 
+        case 21:
+            printf("  -> Memoria insuficiente\n");
+            break;
+
         case 22:
             printf("  -> Stack overflow\n");
             break;

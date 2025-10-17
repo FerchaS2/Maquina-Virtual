@@ -19,7 +19,7 @@ void carga_vmx_v1(MV * mv, FILE * arch) {
         mv->segmentos[1].base = tam_cod;
         mv->segmentos[1].tam = MEM - tam_cod;
         fread(mv->memoria, 1, tam_cod, arch);
-        mv->registros[IDX_CS] = 0; //CS = 26 y DS = 27
+        mv->registros[IDX_CS] = 0; // CS = 26 y DS = 27
         mv->registros[IDX_DS] = (1 << 16) | 0; // DS = 00 01 00 00
         mv->registros[IDX_IP] = mv->registros[IDX_CS];
     }
@@ -91,7 +91,7 @@ void carga_vmx_v2(MV *mv, FILE *arch) {
     total = tam_code + tam_data + tam_extra + tam_stack + tam_const;
 
     if (total > mv->memoria_total) {
-        // printf("Error: tamaño total de segmentos excede la memoria\n");
+        printf("Error: tamaño total de segmentos excede la memoria\n");
         mv->err = ERR_MEM;
     } else {
         // --- PARAM SEGMENT (si lo hay, ya cargado) ---

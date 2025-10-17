@@ -720,7 +720,7 @@ void SYS_STRWRITE(MV *mv) {
 }
 
 void SYS_CLEAR(MV *mv) {
-    (void) mv; // No se usa la MV
+    (void) mv; // No se usa la MV, podría no pasarla por parámetro, pero lo dejo para seguir el formato
     system("cls || clear"); // cls para windows, clear para linux
 }
 

@@ -141,12 +141,66 @@ void mostrarInstr(InstrDecod *instr, char *vecMNEM[], char *vecREGS[]) {
     printf("\n");
 }
 
+void mostrarKS(MV *mv) {
+    uint16_t segm = (mv->registros[IDX_KS] >> 16) & 0xFFFF;
+    uint32_t base = mv->segmentos[segm].base;
+    uint32_t tam = mv->segmentos[segm].tam;
+    uint32_t dir_fisica = base;
+    uint8_t c;
+    char aux[256];
+    int len, mostrar;
+
+    while (dir_fisica < base + tam) {
+        // Copiar la cadena completa hasta el '\0' o fin de segmento
+        len = 0;
+        while (dir_fisica + len < base + tam && (c = mv->memoria[dir_fisica + len]) != '\0') {
+            aux[len++] = c;
+        }
+        aux[len] = '\0';
+
+        // Imprimir dirección
+        printf("   [%04X] ", dir_fisica);
+
+        // Mostrar bytes en hexadecimal
+        mostrar = len + 1; // incluye '\0'
+        if (mostrar > 7) mostrar = 6; // mostrar solo primeros 6 + ".."
+
+        for (int i = 0; i < mostrar; i++)
+            printf("%02X ", mv->memoria[dir_fisica + i]);
+
+        if (len + 1 > 7)
+            printf(".. "); // indicar que continúa
+        else
+            // Completar espacio hasta 7 bytes (alineado)
+            for (int i = mostrar; i < 7; i++)
+                printf("   ");
+        
+
+        // Mostrar versión imprimible entre comillas
+        printf("| \"");
+        for (int i = 0; i < len; i++) {
+            char ch = aux[i];
+            if ((ch >= 32 && ch <= 126))
+                putchar(ch);
+            else if (ch == '\n')
+                printf("\\n");
+            else
+                putchar('.');
+        }
+        printf("\"\n");
+
+        // Avanzar al próximo string (pasar el '\0')
+        dir_fisica += len + 1;
+    }
+}
+
+
 void desensamblar(MV *mv) {
     InstrDecod instr;
     int tam;
     char *vecMNEM[MAX_FN], *vecREGS[32];
     uint32_t ip_ini, ip_fin, dir_fis, ip_aux;
-    uint16_t segm, off;
+    uint16_t segm, off, segmKS = mv->registros[IDX_KS] >> 16;
     uint32_t tamCS;
 
     ip_aux = mv->registros[IDX_IP]; // guardo el primer valor del ip para después retomarlo
@@ -157,6 +211,9 @@ void desensamblar(MV *mv) {
 
     ini_VecREGS(vecREGS);
     ini_VecMNEM(vecMNEM);
+    
+    if(mv->segmentos[segmKS].tam != 0)
+        mostrarKS(mv);
 
     while (off < tamCS) {
         ip_ini = mv->registros[IDX_IP];
@@ -169,7 +226,12 @@ void desensamblar(MV *mv) {
         tam = ip_fin - ip_ini; //cantidad de bytes de la instrucción
 
         // imprimo dirección física y bytes de la instrucción
-        printf("[%04X] ", dir_fis);
+        if (ip_ini == ip_aux) {
+            printf(" > ");
+            printf("[%04X] ", dir_fis);
+        } else
+            printf("   [%04X] ", dir_fis);
+        
 
         for (int i = 0; i < tam; i++) {
             printf("%02X ", mv->memoria[dir_fis + i]);
