@@ -18,7 +18,6 @@ void ini_mv(MV * mv, int argc, char const *argv[]) {
         if (strstr(argv[i], ".vmi")) {
             strcpy(mv->archivo_vmi, argv[i]);
         }
-
         // Tamaño de memoria -> formato m=NN
         else if (strncmp(argv[i], "m=", 2) == 0) {
             memoria_total = atoi(argv[i] + 2) * 1024; // valor en KiB

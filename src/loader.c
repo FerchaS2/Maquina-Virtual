@@ -1,4 +1,5 @@
 #include "loader.h"
+#include "instrucciones.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,9 +38,44 @@ uint32_t leer32BE(FILE *arch) {
     return ((uint32_t)b[0] << 24) | ((uint32_t)b[1] << 16) | ((uint32_t)b[2] << 8)  |  (uint32_t)b[3];
 }
 
+void inicializar_pila(MV *mv) {
+    uint32_t ret = 0xFFFFFFFF;
+    uint32_t argc = mv->argc;
+    uint32_t argv = mv->argv;
+    
+    uint16_t seg_stack = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
+    if (mv->segmentos[seg_stack].tam == 0) { // Verificar que el stack segment esté configurado
+        printf("Error: Segmento de pila no inicializado.\n");
+    } else {
+        // PUSH argv
+        mv->registros[IDX_SP] -= 4;
+        if (mv->registros[IDX_SP] < mv->registros[IDX_SS])
+            mv->err = ERR_STACKOVF;
+        else {
+            setValorStack(mv, argv);
+
+            // PUSH argc
+            mv->registros[IDX_SP] -= 4;
+            if (mv->registros[IDX_SP] < mv->registros[IDX_SS])
+                mv->err = ERR_STACKOVF;
+            else {
+                setValorStack(mv, argc);
+
+                // PUSH RET (-1)
+            mv->registros[IDX_SP] -= 4;
+            if (mv->registros[IDX_SP] < mv->registros[IDX_SS])
+                mv->err = ERR_STACKOVF;
+            else
+                setValorStack(mv, ret);
+            }
+        }
+    }
+}
+
+
 void carga_vmx_v2(MV *mv, FILE *arch) {
     uint16_t tam_code, tam_data, tam_extra, tam_stack, tam_const;
-    uint16_t entry_point;
+    uint16_t entry_point, segm_PS = 0x0000;
     uint32_t base = 0, total, dir_code, dir_const;
     int seg_idx = 0;
 
@@ -59,8 +95,8 @@ void carga_vmx_v2(MV *mv, FILE *arch) {
         mv->err = ERR_MEM;
     } else {
         // --- PARAM SEGMENT (si lo hay, ya cargado) ---
-        if (mv->segmentos[IDX_PS].tam > 0) {
-            base += mv->segmentos[IDX_PS].tam;
+        if (mv->segmentos[segm_PS].tam > 0) {
+            base += mv->segmentos[segm_PS].tam;
             seg_idx++;
         }
 
@@ -126,6 +162,8 @@ void carga_vmx_v2(MV *mv, FILE *arch) {
             mv->registros[IDX_IP] = (mv->registros[IDX_CS] & 0xFFFF0000) | entry_point;
         else
             mv->registros[IDX_IP] = 0xFFFFFFFF;
+
+        inicializar_pila(mv);
     }
 }
 

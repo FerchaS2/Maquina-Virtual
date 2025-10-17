@@ -7,20 +7,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#define MODE_DEC  0x01
-#define MODE_CHAR  0x02
-#define MODE_OCT   0x04
-#define MODE_HEX   0x08
-#define MODE_BIN   0x10
-
-#define ERR_NOTINM 10
-#define ERR_STACKOVF 22
-#define ERR_STACKUDR 23
-#define ERR_IO 1
-#define ERR_ABORT 24
-
-#define LIM_STRREAD 1024
-
 void ini_VecFn(Fn_Instr *vec) {
     for (int i = 0; i < 32; i++)
         vec[i] = NULL;
@@ -702,8 +688,6 @@ void SYS_STRREAD(MV *mv) {
         fgets(buffer, sizeof(buffer), stdin);
 
         len = strlen(buffer);
-        if (len && buffer[len - 1] == '\n') 
-            buffer[len - 1] = '\0'; // Elimino el salto de línea
 
         if (maxlen != -1 && len > maxlen)
             len = maxlen;  // Si se pasó lo seteo en el máximo
@@ -726,11 +710,10 @@ void SYS_STRWRITE(MV *mv) {
 
     traductor(mv, segm, off, 1, &dir_fisica);
     if (!(mv->err)) {
-        printf("[%04x] ", dir_fisica);
         c = mv->memoria[dir_fisica];
         while (c != '\0') {
             putchar(c);
-            c = mv->memoria[dir_fisica++];
+            c = mv->memoria[++dir_fisica];
         }
         fflush(stdout);
     }
@@ -891,6 +874,7 @@ void Fn_CALL(MV *mv, InstrDecod *instr) {
         mv->err = ERR_STACKOVF;
     } else {
         offset = getValorPorInstr(mv, instr->op1) & 0xFFFF;
+        setValorStack(mv, mv->registros[IDX_IP]);
         mv->registros[IDX_IP] = (mv->registros[IDX_IP] & 0xFFFF0000) | offset;
     }
 }
@@ -898,8 +882,11 @@ void Fn_CALL(MV *mv, InstrDecod *instr) {
 
 void Fn_RET(MV *mv, InstrDecod *instr) {
     (void) instr;
-    uint16_t segm = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
-    uint32_t val, limite = mv->segmentos[segm].base + mv->segmentos[segm].tam;
+    uint16_t seg = (mv->registros[IDX_SS] >> 16) & 0xFFFF;
+    uint32_t val;
+    uint32_t limite = mv->segmentos[seg].tam;
+    limite = mv->registros[IDX_SS] | limite;
+
     if (mv->registros[IDX_SP] >= limite) {
         mv->err = ERR_STACKUDR;
     } else {
