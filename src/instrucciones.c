@@ -861,7 +861,8 @@ void Fn_POP(MV *mv, InstrDecod *instr) {
         if (!(mv->err)) {
             setValorPorInstr(mv, instr->op1, val);
             mv->registros[IDX_SP] += 4;
-        }
+        } else
+            mv->err = ERR_STACKUDR;
     }
 }
 

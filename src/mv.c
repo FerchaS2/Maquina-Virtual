@@ -8,6 +8,7 @@
 void ini_mv(MV * mv, int argc, char const *argv[]) {
     // Valores por defecto
     uint32_t memoria_total = 16 * 1024; // 16 KiB por defecto
+    int vmx = 0;
     mv->archivo_vmi[0] = '\0';
     mv->modo_debug = 0;
     mv->err = 0;
@@ -18,6 +19,12 @@ void ini_mv(MV * mv, int argc, char const *argv[]) {
         if (strstr(argv[i], ".vmi")) {
             strcpy(mv->archivo_vmi, argv[i]);
         }
+
+        // .vmx, para decidir si cargar o no los parámetros (si no hay .vmx no se cargan)
+        else if (strstr(argv[i], ".vmx")) {
+            vmx = 1;
+        }
+        
         // Tamaño de memoria -> formato m=NN
         else if (strncmp(argv[i], "m=", 2) == 0) {
             memoria_total = atoi(argv[i] + 2) * 1024; // valor en KiB
@@ -33,7 +40,8 @@ void ini_mv(MV * mv, int argc, char const *argv[]) {
     memset(mv->registros, 0, sizeof(mv->registros));
     memset(mv->segmentos, 0, sizeof(mv->segmentos));
 
-    carga_parametros(mv, argc, argv);
+    if (vmx)
+        carga_parametros(mv, argc, argv);
 }
 
 void incIP(MV *mv, uint16_t inc) {
