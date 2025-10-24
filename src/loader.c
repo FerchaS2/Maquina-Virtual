@@ -5,11 +5,13 @@
 #include <stdlib.h>
 
 void carga_vmx_v1(MV * mv, FILE * arch) {
-    uint16_t tam_cod, high_tam, low_tam;
+    uint8_t high_tam, low_tam;
+    uint16_t tam_cod;
 
     fread(&high_tam, 1, 1, arch);
     fread(&low_tam, 1, 1, arch);
     tam_cod = (high_tam << 8) | low_tam;
+    printf("Tamaño v1 = %d\n", tam_cod);
     if (tam_cod > MEM) {
         printf("Código demasiado grande\n");
         mv->err = ERR_COD;
@@ -21,6 +23,10 @@ void carga_vmx_v1(MV * mv, FILE * arch) {
         fread(mv->memoria, 1, tam_cod, arch);
         mv->registros[IDX_CS] = 0; // CS = 26 y DS = 27
         mv->registros[IDX_DS] = (1 << 16) | 0; // DS = 00 01 00 00
+        mv->registros[IDX_ES] = 0xFFFFFFFF;
+        mv->registros[IDX_KS] = 0xFFFFFFFF;
+        mv->registros[IDX_SS] = 0xFFFFFFFF;
+        mv->registros[IDX_PS] = 0xFFFFFFFF;
         mv->registros[IDX_IP] = mv->registros[IDX_CS];
     }
 }
