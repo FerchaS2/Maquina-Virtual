@@ -211,9 +211,9 @@ void desensamblar(MV *mv) {
 
     ini_VecREGS(vecREGS);
     ini_VecMNEM(vecMNEM);
-    
-    if(mv->segmentos[segmKS].tam != 0)
+    if(mv->registros[IDX_KS] != 0xFFFFFFFF && mv->segmentos[segmKS].tam != 0) {
         mostrarKS(mv);
+    }
 
     while (off < tamCS) {
         ip_ini = mv->registros[IDX_IP];
