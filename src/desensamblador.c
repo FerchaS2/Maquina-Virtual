@@ -93,7 +93,7 @@ void printOperand(uint32_t op, char *vecREGS[]) {
                     printf("%cH", vecREGS[indexReg][1]);
                     break;
                 case 0b11: // registro de 2 bytes
-                    printf("%s", vecREGS[indexReg] + 1); 
+                    printf("%cX", vecREGS[indexReg][1]); 
                     break;
             }
             break;

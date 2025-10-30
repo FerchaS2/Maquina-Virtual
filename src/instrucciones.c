@@ -679,15 +679,22 @@ void SYS_STRREAD(MV *mv) {
     uint32_t dir_fisica;
     char buffer[LIM_STRREAD];
     int len;
+
     
     traductor(mv, segm, off, maxlen + 1, &dir_fisica);  // +1 por el \0
     if (!(mv->err)) {
-        printf("[%04x] ", dir_fisica);
+        // printf("[%04x] ", dir_fisica);
 
         fflush(stdout);
         fgets(buffer, sizeof(buffer), stdin);
 
         len = strlen(buffer);
+        
+        // Si el último carácter es '\n', lo reemplazo por '\0'
+        if (len > 0 && buffer[len - 1] == '\n') {
+            buffer[len - 1] = '\0';
+            len--;
+        }
 
         if (maxlen != -1 && len > maxlen)
             len = maxlen;  // Si se pasó lo seteo en el máximo

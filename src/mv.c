@@ -111,14 +111,16 @@ void ejecutar(MV *mv) {
     Fn_Instr vecFn[MAX_FN];
     Fn_Instr FnAct;
     uint32_t ip;
-    uint16_t segact, segmCS = mv->registros[IDX_CS] >> 16;
+    uint16_t segact, segmCS = mv->registros[IDX_CS] >> 16, off = 0;
+    uint32_t tamCS  = mv->segmentos[segmCS].tam;
     
     ini_VecFn(vecFn);
 
-    while (!fin) {
+    while ((off < tamCS) && !fin) {
         ip = mv->registros[IDX_IP];
         segact = (ip >> 16) & 0xFFFF;
-        if (segact != segmCS) 
+
+        if (segact != segmCS || mv->err != 0) 
             fin = 1;
         else {
             decodificador(mv, &instr);
@@ -138,6 +140,7 @@ void ejecutar(MV *mv) {
                 }
             }
         }
+        off = ip & 0xFFFF;
     }
 
     free(mv->memoria);
